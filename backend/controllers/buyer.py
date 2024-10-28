@@ -3,7 +3,9 @@ from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
 from models.user import User
 from models.profile import Profile
+from models.review import Review
 from models.buyer_listing import BuyerListing
+from datetime import datetime
 
 bp = Blueprint('buyer', __name__)
 
@@ -30,19 +32,40 @@ def view_listings():
 @bp.route('/save_listing', methods=['POST'])
 def save_listing():
     data = request.json
-    BuyerListing.save_listing(data.get('user_id'), data.get('listing_id'))
+    user_id = data.get('user_id')
+    listing_id = data.get('listing_id')
+    
+    if not user_id or not listing_id:
+        return jsonify({"message": "Missing user_id or listing_id"}), 400
+    
+    result = BuyerListing.save_listing(user_id, listing_id)
+    if result is None:
+        return jsonify({"message": "Invalid listing_id"}), 400
+    
     return jsonify({"message": "Listing saved to shortlist"}), 200
-
 # Search Shortlisted Cars
 @bp.route('/search_shortlist', methods=['GET'])
 def search_shortlist():
     user_id = request.args.get('user_id')
     query = request.args.get('query')
-    listings = BuyerListing.search_shortlist(user_id, query)
-    listings_list = list(listings)
-    for listing in listings_list:
+    listing_id = request.args.get('listing_id')
+    
+    if not user_id:
+        return jsonify({"message": "Missing user_id parameter"}), 400
+    
+    if not query and not listing_id:
+        return jsonify({"message": "Provide either query or listing_id parameter"}), 400
+    
+    listings = BuyerListing.search_shortlist(user_id, query=query, listing_id=listing_id)
+    listings_list = []
+    for listing in listings:
         listing['_id'] = str(listing['_id'])
+        listing['seller_id'] = str(listing['seller_id'])  # Convert seller_id ObjectId to string if needed
+        listing['created_at'] = listing['created_at'].isoformat()  # Convert datetime to string
+        listings_list.append(listing)
+    
     return jsonify(listings_list), 200
+
 
 # View Shortlist
 @bp.route('/view_shortlist', methods=['GET'])
@@ -86,6 +109,7 @@ def logout():
     return jsonify({"message": "Logout successful"}), 200
 
 
+# Rate and Review Agent
 @bp.route('/rate_review_agent', methods=['POST'])
 def rate_review_agent():
     data = request.json
@@ -94,13 +118,30 @@ def rate_review_agent():
     if not all(field in data for field in required_fields):
         return jsonify({"message": "Missing required fields"}), 400
 
+    # Validate rating
+    rating = data.get('rating')
+    if not isinstance(rating, (int, float)) or not (1 <= rating <= 5):
+        return jsonify({"message": "Rating must be a number between 1 and 5"}), 400
+
+    # Check if agent exists and is a used car agent
+    agent = User.get_user_by_id(data['agent_id'])
+    print(agent)
+    if not agent or agent.get('role') != 'used_car_agent':
+        return jsonify({"message": "Invalid agent ID"}), 400
+
+    # Check if buyer exists and is a buyer
+    buyer = User.get_user_by_id(data['buyer_id'])
+    print(buyer)
+    if not buyer or buyer.get('role') != 'buyer':
+        return jsonify({"message": "Invalid buyer ID"}), 400
+
     # Create review
     review = {
         "agent_id": data['agent_id'],
         "buyer_id": data['buyer_id'],
-        "rating": data['rating'],
+        "rating": rating,
         "review": data.get('review', ''),
         "created_at": datetime.utcnow()
     }
-    Review.create_review(review)  # Implement this method in your Review model
+    Review.create_review(review)
     return jsonify({"message": "Review submitted successfully"}), 201

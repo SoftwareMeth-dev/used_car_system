@@ -2,6 +2,10 @@
 
 import sys
 import os
+import string
+from faker import Faker
+import random
+from bson.objectid import ObjectId
 
 # Ensure that the parent directory is in the Python path to allow imports from `models`
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,9 +16,7 @@ sys.path.insert(0, parent_dir)  # Prepend the parent directory to sys.path
 from models.user import User
 from models.profile import Profile
 from models.used_car_listing import UsedCarListing
-from faker import Faker
-import random
-from bson.objectid import ObjectId
+from models.review import Review
 
 fake = Faker()
 
@@ -62,10 +64,12 @@ def populate_profiles():
 def populate_users(n_total=100, n_sellers=20):
     """
     Create a total of `n_total` users, with `n_sellers` of them being sellers.
-    Returns a list of seller IDs to be used for creating listings.
+    Returns a tuple of (seller_user_ids, buyer_user_ids, agent_user_ids)
     """
     roles = ['user_admin', 'used_car_agent', 'buyer', 'seller']
     sellers = []
+    buyers = []
+    agents = []
     
     # First, create `n_sellers` seller users
     for _ in range(n_sellers):
@@ -89,9 +93,13 @@ def populate_users(n_total=100, n_sellers=20):
             "role": role,
             "suspended": False
         }
-        User.create_user(user)
+        result = User.create_user(user)
+        if role == 'buyer':
+            buyers.append(str(result.inserted_id))
+        elif role == 'used_car_agent':
+            agents.append(str(result.inserted_id))
     
-    return sellers
+    return sellers, buyers, agents
 
 def populate_used_car_listings(n=100, seller_ids=[]):
     """
@@ -118,19 +126,43 @@ def populate_used_car_listings(n=100, seller_ids=[]):
         }
         UsedCarListing.create_listing(listing)
 
+def populate_reviews(sellers, buyers, agents, n=50):
+    """
+    Create `n` reviews from buyers and sellers to agents.
+    """
+    for _ in range(n):
+        review = {
+            "agent_id": random.choice(agents),
+            "rating": random.randint(1, 5),
+            "review": fake.sentence(nb_words=10),
+            "created_at": fake.date_time_this_decade()
+        }
+
+        # Randomly decide if it's from a buyer or seller
+        if random.choice(['buyer', 'seller']) == 'buyer' and buyers:
+            review["buyer_id"] = random.choice(buyers)
+        elif sellers:
+            review["seller_id"] = random.choice(sellers)
+        
+        Review.create_review(review)
+
 def main():
     """Main function to populate the database with sample data."""
     # Create Profiles
     print("Populating profiles...")
     populate_profiles()
     
-    # Create Users and collect seller IDs
+    # Create Users and collect seller, buyer, and agent IDs
     print("Populating users...")
-    seller_ids = populate_users(n_total=100, n_sellers=20)
+    sellers, buyers, agents = populate_users(n_total=100, n_sellers=20)
     
     # Create Used Car Listings
     print("Populating used car listings...")
-    populate_used_car_listings(n=100, seller_ids=seller_ids)
+    populate_used_car_listings(n=100, seller_ids=sellers)
+    
+    # Create Reviews
+    print("Populating reviews...")
+    populate_reviews(sellers, buyers, agents, n=50)
     
     print("Sample data populated successfully.")
 

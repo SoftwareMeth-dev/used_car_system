@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify
 from models.user import User
 from models.used_car_listing import UsedCarListing
+from models.review import Review
 from models.profile import Profile
 
 bp = Blueprint('used_car_agent', __name__)
@@ -78,3 +79,24 @@ def login():
 @bp.route('/logout', methods=['POST'])
 def logout():
     return jsonify({"message": "Logout successful"}), 200
+
+
+
+# View Reviews for Agent
+@bp.route('/view_reviews/<agent_id>', methods=['GET'])
+def view_reviews(agent_id):
+    # Check if agent exists and is a used car agent
+    agent = User.get_user_by_id(agent_id)
+    if not agent or agent.get('role') != 'used_car_agent':
+        return jsonify({"message": "Invalid agent ID"}), 400
+
+    reviews = Review.get_reviews_for_agent(agent_id)
+    reviews_list = []
+    for review in reviews:
+        review['_id'] = str(review['_id'])
+        reviews_list.append(review)
+
+    # Get average rating
+    average_rating = Review.get_average_rating(agent_id)
+
+    return jsonify({"reviews": reviews_list, "average_rating": average_rating}), 200

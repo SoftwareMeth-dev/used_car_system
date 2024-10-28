@@ -2,8 +2,10 @@
 from flask import Blueprint, request, jsonify
 from models.user import User
 from models.profile import Profile
+from models.review import Review
 from models.seller_metrics import SellerMetrics
 
+from datetime import datetime
 bp = Blueprint('seller', __name__)
 
 # Track Views
@@ -61,3 +63,40 @@ def login():
 @bp.route('/logout', methods=['POST'])
 def logout():
     return jsonify({"message": "Logout successful"}), 200
+
+
+
+# Rate and Review Agent
+@bp.route('/rate_review_agent', methods=['POST'])
+def rate_review_agent():
+    data = request.json
+    # Validate data
+    required_fields = ['agent_id', 'rating', 'seller_id']
+    if not all(field in data for field in required_fields):
+        return jsonify({"message": "Missing required fields"}), 400
+
+    # Validate rating
+    rating = data.get('rating')
+    if not isinstance(rating, (int, float)) or not (1 <= rating <= 5):
+        return jsonify({"message": "Rating must be a number between 1 and 5"}), 400
+
+    # Check if agent exists and is a used car agent
+    agent = User.get_user_by_id(data['agent_id'])
+    if not agent or agent.get('role') != 'used_car_agent':
+        return jsonify({"message": "Invalid agent ID"}), 400
+
+    # Check if seller exists and is a seller
+    seller = User.get_user_by_id(data['seller_id'])
+    if not seller or seller.get('role') != 'seller':
+        return jsonify({"message": "Invalid seller ID"}), 400
+
+    # Create review
+    review = {
+        "agent_id": data['agent_id'],
+        "seller_id": data['seller_id'],
+        "rating": rating,
+        "review": data.get('review', ''),
+        "created_at": datetime.utcnow()
+    }
+    Review.create_review(review)
+    return jsonify({"message": "Review submitted successfully"}), 201
