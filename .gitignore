@@ -128,7 +128,7 @@ Desktop.ini
 *.tmp
 
 # Frontend
-frontend/
+# frontend/
 
 # Documentation
 documentation/
