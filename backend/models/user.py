@@ -101,6 +101,26 @@ class User:
         return users_collection.update_one({"username": username}, {"$set": {"suspended": False}})
 
     @staticmethod
+    def suspend_users_by_role(role):
+        """
+        Suspends all users with the specified role.
+
+        :param role: (str) The role of users to suspend.
+        :return: (UpdateResult) The result of the update operation.
+        """
+        return users_collection.update_many({"role": role}, {"$set": {"suspended": True}})
+
+    @staticmethod
+    def reenable_users_by_role(role):
+        """
+        Re-enables all users with the specified role.
+
+        :param role: (str) The role of users to re-enable.
+        :return: (UpdateResult) The result of the update operation.
+        """
+        return users_collection.update_many({"role": role}, {"$set": {"suspended": False}})
+
+    @staticmethod
     def search_users(query):
         """
         Searches users by username or email using a regex.

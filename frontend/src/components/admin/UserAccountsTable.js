@@ -37,6 +37,23 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState([]); // To dynamically fetch roles for editing
+
+  // Function to fetch available roles from profiles
+  const fetchAvailableRoles = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/user_admin/view_profiles');
+      if (Array.isArray(response.data)) {
+        const roles = response.data.map(profile => profile.role);
+        setAvailableRoles(roles);
+      } else if (response.data) {
+        setAvailableRoles([response.data.role]);
+      }
+    } catch (err) {
+      console.error(err);
+      // Handle error silently or set a default list
+    }
+  };
 
   // Open edit dialog
   const handleOpenEdit = (user) => {
@@ -48,6 +65,7 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
     });
     setError('');
     setSuccess('');
+    fetchAvailableRoles(); // Fetch roles when editing
   };
 
   // Close edit dialog
@@ -172,7 +190,7 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
                 <TableRow key={index}>
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.role}</TableCell>
+                  <TableCell>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</TableCell>
                   <TableCell>{user.suspended ? 'Suspended' : 'Active'}</TableCell>
                   <TableCell align="right">
                     {/* Edit Icon */}
@@ -235,11 +253,9 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
               <MenuItem value="">
                 <em>None</em>
               </MenuItem>
-              <MenuItem value="user_admin">Admin</MenuItem>
-              <MenuItem value="buyer">Buyer</MenuItem>
-              <MenuItem value="seller">Seller</MenuItem>
-              <MenuItem value="used_car_agent">Used Car Agent</MenuItem>
-              {/* Add other roles as needed */}
+              {availableRoles.map((role, idx) => (
+                <MenuItem key={idx} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</MenuItem>
+              ))}
             </Select>
           </FormControl>
         </DialogContent>
@@ -282,8 +298,8 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
           </Button>
         </DialogActions>
       </Dialog>
-</TableContainer>
-);
-    };
+    </TableContainer>
+  );
+};
 
 export default UserAccountsTable;

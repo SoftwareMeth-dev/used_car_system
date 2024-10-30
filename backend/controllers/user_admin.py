@@ -22,19 +22,22 @@ class AdminController(UserController):
         self.bp.route('/view_profiles', methods=['GET'])(self.view_profiles)
         self.bp.route('/update_profile/<role>', methods=['PUT'])(self.update_profile)
         self.bp.route('/suspend_profile/<role>', methods=['PATCH'])(self.suspend_profile)
+        self.bp.route('/reenable_profile/<role>', methods=['PATCH'])(self.reenable_profile)  # New route
         self.bp.route('/search_profiles', methods=['GET'])(self.search_profiles)
 
     # Admin-specific methods
     def create_user(self):
         data = request.json
         # Basic validation
-        if not all(k in data for k in ("username", "password", "email", "role")):
+        required_fields = ["username", "password", "email", "role"]
+        if not all(field in data for field in required_fields):
             return jsonify({"message": "Missing required fields"}), 400
 
         # Check if user already exists
         if User.get_user_by_username(data.get('username')):
             return jsonify({"message": "Username already exists"}), 400
 
+        # Create user
         User.create_user(data)
         return jsonify({"message": "User created successfully"}), 201
 
@@ -100,7 +103,8 @@ class AdminController(UserController):
     def create_profile(self):
         data = request.json
         # Basic validation
-        if not all(k in data for k in ("role", "rights")):
+        required_fields = ["role", "rights"]
+        if not all(field in data for field in required_fields):
             return jsonify({"message": "Missing required fields"}), 400
 
         # Check if profile already exists
@@ -108,6 +112,7 @@ class AdminController(UserController):
         if existing_profile:
             return jsonify({"message": "Profile with this role already exists"}), 400
 
+        # Create profile
         Profile.create_profile(data)
         return jsonify({"message": "Profile created successfully"}), 201
 
@@ -142,10 +147,22 @@ class AdminController(UserController):
         return jsonify({"message": "Profile updated successfully"}), 200
 
     def suspend_profile(self, role):
+        """
+        Suspends a profile and all associated user accounts.
+        """
         result = Profile.suspend_profile(role)
         if result.matched_count == 0:
             return jsonify({"message": "Profile not found"}), 404
-        return jsonify({"message": "Profile suspended successfully"}), 200
+        return jsonify({"message": "Profile and associated users suspended successfully"}), 200
+
+    def reenable_profile(self, role):
+        """
+        Re-enables a profile and all associated user accounts.
+        """
+        result = Profile.reenable_profile(role)
+        if result.matched_count == 0:
+            return jsonify({"message": "Profile not found"}), 404
+        return jsonify({"message": "Profile and associated users re-enabled successfully"}), 200
 
     def search_profiles(self):
         """

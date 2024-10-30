@@ -37,6 +37,23 @@ const UserAccounts = () => {
     status: '',
   });
   const [loading, setLoading] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState([]); // For dynamic role options
+
+  // Function to fetch available roles from profiles
+  const fetchAvailableRoles = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/user_admin/view_profiles');
+      if (Array.isArray(response.data)) {
+        const roles = response.data.map(profile => profile.role);
+        setAvailableRoles(roles);
+      } else if (response.data) {
+        setAvailableRoles([response.data.role]);
+      }
+    } catch (err) {
+      console.error(err);
+      // Handle error silently or set a default list
+    }
+  };
 
   // Function to fetch users based on filters
   const fetchUsers = async () => {
@@ -59,8 +76,9 @@ const UserAccounts = () => {
     }
   };
 
-  // Fetch users on component mount
+  // Fetch users and available roles on component mount
   useEffect(() => {
+    fetchAvailableRoles();
     fetchUsers();
     // eslint-disable-next-line
   }, []);
@@ -160,11 +178,9 @@ const UserAccounts = () => {
               <MenuItem value="">
                 <em>All</em>
               </MenuItem>
-              <MenuItem value="user_admin">Admin</MenuItem>
-              <MenuItem value="buyer">Buyer</MenuItem>
-              <MenuItem value="seller">Seller</MenuItem>
-              <MenuItem value="used_car_agent">Used Car Agent</MenuItem>
-              {/* Add other roles as needed */}
+              {availableRoles.map((role, index) => (
+                <MenuItem key={index} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</MenuItem>
+              ))}
             </Select>
           </FormControl>
           <FormControl variant="outlined" size="small" sx={{ minWidth: 120 }}>
@@ -254,11 +270,9 @@ const UserAccounts = () => {
               <MenuItem value="">
                 <em>None</em>
               </MenuItem>
-              <MenuItem value="user_admin">Admin</MenuItem>
-              <MenuItem value="buyer">Buyer</MenuItem>
-              <MenuItem value="seller">Seller</MenuItem>
-              <MenuItem value="used_car_agent">Used Car Agent</MenuItem>
-              {/* Add other roles as needed */}
+              {availableRoles.map((role, index) => (
+                <MenuItem key={index} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</MenuItem>
+              ))}
             </Select>
           </FormControl>
         </DialogContent>
@@ -270,7 +284,7 @@ const UserAccounts = () => {
         </DialogActions>
       </Dialog>
     </Box>
-    );  
-  };
+  );  
+};
 
 export default UserAccounts;

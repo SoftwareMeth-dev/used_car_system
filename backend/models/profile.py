@@ -42,11 +42,35 @@ class Profile:
     def suspend_profile(role):
         """
         Suspends a profile by setting its 'suspended' field to True.
+        Also suspends all users with this role.
 
         :param role: (str) The role of the profile to suspend.
         :return: (UpdateResult) The result of the update operation.
         """
-        return profiles_collection.update_one({"role": role}, {"$set": {"suspended": True}})
+        # First, suspend the profile
+        result = profiles_collection.update_one({"role": role}, {"$set": {"suspended": True}})
+        if result.matched_count > 0:
+            # Suspend all users with this role
+            from models.user import User  # Import here to avoid circular import
+            User.suspend_users_by_role(role)
+        return result
+
+    @staticmethod
+    def reenable_profile(role):
+        """
+        Re-enables a profile by setting its 'suspended' field to False.
+        Also re-enables all users with this role.
+
+        :param role: (str) The role of the profile to re-enable.
+        :return: (UpdateResult) The result of the update operation.
+        """
+        # First, re-enable the profile
+        result = profiles_collection.update_one({"role": role}, {"$set": {"suspended": False}})
+        if result.matched_count > 0:
+            # Re-enable all users with this role
+            from models.user import User  # Import here to avoid circular import
+            User.reenable_users_by_role(role)
+        return result
 
     @staticmethod
     def search_profiles(query):
