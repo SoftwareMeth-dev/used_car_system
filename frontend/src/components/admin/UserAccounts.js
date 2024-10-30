@@ -160,7 +160,7 @@ const UserAccounts = () => {
               <MenuItem value="">
                 <em>All</em>
               </MenuItem>
-              <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="user_admin">Admin</MenuItem>
               <MenuItem value="buyer">Buyer</MenuItem>
               <MenuItem value="seller">Seller</MenuItem>
               <MenuItem value="used_car_agent">Used Car Agent</MenuItem>
@@ -254,7 +254,7 @@ const UserAccounts = () => {
               <MenuItem value="">
                 <em>None</em>
               </MenuItem>
-              <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="user_admin">Admin</MenuItem>
               <MenuItem value="buyer">Buyer</MenuItem>
               <MenuItem value="seller">Seller</MenuItem>
               <MenuItem value="used_car_agent">Used Car Agent</MenuItem>
