@@ -1,6 +1,4 @@
-// Ensure there's no reference to UserProfiles within UserProfilesTable.js
-// The component should only handle displaying the table and related dialogs
-
+// src/components/admin/UserProfilesTable.js
 import React, { useState } from 'react';
 import {
   Table,
@@ -19,7 +17,7 @@ import {
   Button,
   TextField,
   Alert,
-  Typography, // Ensure Typography is imported
+  Typography,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
@@ -101,28 +99,36 @@ const UserProfilesTable = ({ profiles, refreshProfiles }) => {
           {profiles.length === 0 ? (
             <TableRow>
               <TableCell colSpan={4} align="center">
-                <Typography>No profiles found.</Typography> {/* Ensure Typography is used correctly */}
+                <Typography>No profiles found.</Typography>
               </TableCell>
             </TableRow>
           ) : (
             profiles.map((profile, index) => (
-              <TableRow key={index}>
-                <TableCell>{profile.role}</TableCell>
-                <TableCell>{profile.rights}</TableCell>
-                <TableCell>{profile.suspended ? 'Suspended' : 'Active'}</TableCell>
-                <TableCell align="right">
-                  <Tooltip title="Edit">
-                    <IconButton onClick={() => handleOpenEdit(profile)}>
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Suspend">
-                    <IconButton onClick={() => handleOpenSuspend(profile)}>
-                      <BlockIcon />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
+              profile ? ( // Ensure profile is not null
+                <TableRow key={index}>
+                  <TableCell>{profile.role}</TableCell>
+                  <TableCell>{profile.rights}</TableCell>
+                  <TableCell>{profile.suspended ? 'Suspended' : 'Active'}</TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Edit">
+                      <IconButton onClick={() => handleOpenEdit(profile)}>
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Suspend">
+                      <IconButton onClick={() => handleOpenSuspend(profile)}>
+                        <BlockIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <TableRow key={index}>
+                  <TableCell colSpan={4} align="center">
+                    <Typography>Invalid profile data.</Typography>
+                  </TableCell>
+                </TableRow>
+              )
             ))
           )}
         </TableBody>

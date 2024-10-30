@@ -15,7 +15,6 @@ import axios from 'axios';
 import UserProfilesTable from './UserProfilesTable';
 import SearchBar from '../common/SearchBar';
 
-
 const UserProfiles = () => {
   const [profiles, setProfiles] = useState([]);
   const [openCreate, setOpenCreate] = useState(false);
@@ -32,7 +31,17 @@ const UserProfiles = () => {
       const response = await axios.get(`http://localhost:5000/api/user_admin/view_profiles`, {
         params: { role: query },
       });
-      setProfiles([response.data]); // Assuming `view_profiles` returns a single profile based on role
+      
+      if (query) {
+        if (response.data) {
+          setProfiles([response.data]); // Single profile
+        } else {
+          setProfiles([]); // No profile found
+        }
+      } else {
+        // Assume response.data is an array when no query is provided
+        setProfiles(Array.isArray(response.data) ? response.data : [response.data]);
+      }
     } catch (err) {
       console.error(err);
       setError('Failed to fetch profiles');

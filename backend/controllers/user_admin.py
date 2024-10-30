@@ -1,129 +1,10 @@
-# # backend/controllers/user_admin.py
-# from flask import Blueprint, request, jsonify
-# from models.user import User
-# from models.profile import Profile
-
-# bp = Blueprint('user_admin', __name__)
-
-# # Create User Account
-# @bp.route('/create_user', methods=['POST'])
-# def create_user():
-#     data = request.json
-#     User.create_user(data)
-#     return jsonify({"message": "User created successfully"}), 201
-
-# # View User Accounts
-# @bp.route('/view_users', methods=['GET'])
-# def view_users():
-#     # Retrieve user based on the username
-#     users = User.get_user_by_username(request.args.get('username'))
-
-#     # Convert ObjectId to string if present
-#     if users:
-#         users['_id'] = str(users['_id'])  # Convert the '_id' ObjectId to a string
-
-#     return jsonify(users), 200
-
-# # Update User Account
-# @bp.route('/update_user/<username>', methods=['PUT'])
-# def update_user(username):
-#     data = request.json
-#     User.update_user(username, data)
-#     return jsonify({"message": "User updated successfully"}), 200
-
-# # Suspend User Account
-# @bp.route('/suspend_user/<username>', methods=['PATCH'])
-# def suspend_user(username):
-#     User.suspend_user(username)
-#     return jsonify({"message": "User suspended successfully"}), 200
-
-# # Search User Accounts
-# @bp.route('/search_users', methods=['GET'])
-# def search_users():
-#     query = request.args.get('query')
-#     users = User.search_users(query)
-#     users_list = list(users)
-#     for user in users_list:
-#         user['_id'] = str(user['_id'])
-#     return jsonify(users_list), 200
-
-# # Create User Profile
-# @bp.route('/create_profile', methods=['POST'])
-# def create_profile():
-#     data = request.json
-#     Profile.create_profile(data)
-#     return jsonify({"message": "Profile created successfully"}), 201
-
-# # View User Profiles
-# @bp.route('/view_profiles', methods=['GET'])
-# def view_profiles():
-#     role = request.args.get('role')
-#     profile = Profile.get_profile_by_role(role)
-#     profile['_id'] = str(profile['_id'])
-#     return jsonify(profile), 200
-
-# # Update User Profile
-# @bp.route('/update_profile/<role>', methods=['PUT'])
-# def update_profile(role):
-#     data = request.json
-#     Profile.update_profile(role, data)
-#     return jsonify({"message": "Profile updated successfully"}), 200
-
-# # Suspend User Profile
-# @bp.route('/suspend_profile/<role>', methods=['PATCH'])
-# def suspend_profile(role):
-#     Profile.suspend_profile(role)
-#     return jsonify({"message": "Profile suspended successfully"}), 200
-
-# # Search User Profiles
-# @bp.route('/search_profiles', methods=['GET'])
-# def search_profiles():
-#     query = request.args.get('query')
-#     profiles = Profile.search_profiles(query)
-#     profiles_list = list(profiles)
-#     for profile in profiles_list:
-#         profile['_id'] = str(profile['_id'])
-#     return jsonify(profiles_list), 200
-
-# @bp.route('/login', methods=['POST'])
-# def login():
-#     try:
-#         data = request.get_json()
-#         username = data.get('username')
-#         password = data.get('password')
-        
-#         # Assuming `User` and `Profile` are the models being queried
-#         user = User.get_user_by_username(username)
-#         if user and user.get('password') == password and not user.get('suspended'):
-#             profile = Profile.get_profile_by_role(user.get('role'))
-            
-#             # Convert ObjectId to string if present in the response
-#             response_data = {
-#                 "message": "Login successful",
-#                 "profile": {
-#                     "role": profile.get('role'),
-#                     "rights": profile.get('rights'),
-#                     "user_id": str(user.get('_id'))  # Convert ObjectId to string
-#                 }
-#             }
-            
-#             return jsonify(response_data), 200
-#         return jsonify({"message": "Invalid credentials or account suspended"}), 401
-
-#     except Exception as e:
-#         print("Error occurred during login:", e)
-#         return jsonify({"message": "Internal server error"}), 500
-
-# # Logout (No Authentication Mechanism)
-# @bp.route('/logout', methods=['POST'])
-# def logout():
-#     return jsonify({"message": "Logout successful"}), 200
-
-
-from flask import request, jsonify
+# backend/controllers/user_admin.py
+from flask import Blueprint, request, jsonify
 from models.user import User
 from models.profile import Profile
 from controllers.base_controller import UserController
+
+bp = Blueprint('user_admin', __name__, url_prefix='/api/user_admin')
 
 class AdminController(UserController):
     def __init__(self):
@@ -135,6 +16,7 @@ class AdminController(UserController):
         self.bp.route('/view_users', methods=['GET'])(self.view_users)
         self.bp.route('/update_user/<username>', methods=['PUT'])(self.update_user)
         self.bp.route('/suspend_user/<username>', methods=['PATCH'])(self.suspend_user)
+        self.bp.route('/reenable_user/<username>', methods=['PATCH'])(self.reenable_user)  # New route
         self.bp.route('/search_users', methods=['GET'])(self.search_users)
         self.bp.route('/create_profile', methods=['POST'])(self.create_profile)
         self.bp.route('/view_profiles', methods=['GET'])(self.view_profiles)
@@ -145,61 +27,140 @@ class AdminController(UserController):
     # Admin-specific methods
     def create_user(self):
         data = request.json
+        # Basic validation
+        if not all(k in data for k in ("username", "password", "email", "role")):
+            return jsonify({"message": "Missing required fields"}), 400
+
+        # Check if user already exists
+        if User.get_user_by_username(data.get('username')):
+            return jsonify({"message": "Username already exists"}), 400
+
         User.create_user(data)
         return jsonify({"message": "User created successfully"}), 201
 
     def view_users(self):
+        """
+        View User Accounts with optional filtering by username, email, role, and status.
+        """
         username = request.args.get('username')
-        users = User.get_user_by_username(username)
-        if users:
-            users['_id'] = str(users['_id'])
+        email = request.args.get('email')
+        role = request.args.get('role')
+        status = request.args.get('status')  # Expected values: 'active' or 'suspended'
+
+        # Fetch users based on the provided filters
+        users = User.filter_users(username=username, email=email, role=role, status=status)
+
+        # Convert ObjectId to string for each user
+        for user in users:
+            user['_id'] = str(user['_id'])
+
         return jsonify(users), 200
 
     def update_user(self, username):
         data = request.json
-        User.update_user(username, data)
+        if not data:
+            return jsonify({"message": "No data provided for update"}), 400
+
+        # Update user
+        result = User.update_user(username, data)
+        if result.matched_count == 0:
+            return jsonify({"message": "User not found"}), 404
+
         return jsonify({"message": "User updated successfully"}), 200
 
     def suspend_user(self, username):
-        User.suspend_user(username)
+        result = User.suspend_user(username)
+        if result.matched_count == 0:
+            return jsonify({"message": "User not found"}), 404
         return jsonify({"message": "User suspended successfully"}), 200
 
+    def reenable_user(self, username):
+        """
+        Re-enable a suspended user account.
+        """
+        result = User.reenable_user(username)
+        if result.matched_count == 0:
+            return jsonify({"message": "User not found"}), 404
+        return jsonify({"message": "User re-enabled successfully"}), 200
+
     def search_users(self):
+        """
+        Search User Accounts by a general query that matches username or email.
+        """
         query = request.args.get('query')
-        users = User.search_users(query)
-        users_list = list(users)
+        if not query:
+            return jsonify({"message": "Query parameter is required"}), 400
+
+        users_cursor = User.search_users(query)
+        users_list = list(users_cursor)
         for user in users_list:
             user['_id'] = str(user['_id'])
         return jsonify(users_list), 200
 
     def create_profile(self):
         data = request.json
+        # Basic validation
+        if not all(k in data for k in ("role", "rights")):
+            return jsonify({"message": "Missing required fields"}), 400
+
+        # Check if profile already exists
+        existing_profile = Profile.get_profile_by_role(data.get('role'))
+        if existing_profile:
+            return jsonify({"message": "Profile with this role already exists"}), 400
+
         Profile.create_profile(data)
         return jsonify({"message": "Profile created successfully"}), 201
 
     def view_profiles(self):
+        """
+        View User Profiles with optional filtering by role.
+        """
         role = request.args.get('role')
-        profile = Profile.get_profile_by_role(role)
-        if profile:
-            profile['_id'] = str(profile['_id'])
-        return jsonify(profile), 200
+
+        # Fetch profiles based on the provided role
+        profiles = Profile.get_profile_by_role(role)
+
+        # Check if profiles is a list (all profiles) or a single profile document
+        if isinstance(profiles, list):  # If all profiles are returned
+            for profile in profiles:
+                profile['_id'] = str(profile['_id'])
+        elif profiles:  # If a single profile document is returned
+            profiles['_id'] = str(profiles['_id'])
+
+        return jsonify(profiles), 200
 
     def update_profile(self, role):
         data = request.json
-        Profile.update_profile(role, data)
+        if not data:
+            return jsonify({"message": "No data provided for update"}), 400
+
+        # Update profile
+        result = Profile.update_profile(role, data)
+        if result.matched_count == 0:
+            return jsonify({"message": "Profile not found"}), 404
+
         return jsonify({"message": "Profile updated successfully"}), 200
 
     def suspend_profile(self, role):
-        Profile.suspend_profile(role)
+        result = Profile.suspend_profile(role)
+        if result.matched_count == 0:
+            return jsonify({"message": "Profile not found"}), 404
         return jsonify({"message": "Profile suspended successfully"}), 200
 
     def search_profiles(self):
+        """
+        Search User Profiles by a general query that matches role or rights.
+        """
         query = request.args.get('query')
-        profiles = Profile.search_profiles(query)
-        profiles_list = list(profiles)
+        if not query:
+            return jsonify({"message": "Query parameter is required"}), 400
+
+        profiles_cursor = Profile.search_profiles(query)
+        profiles_list = list(profiles_cursor)
         for profile in profiles_list:
             profile['_id'] = str(profile['_id'])
         return jsonify(profiles_list), 200
 
 # Instantiate the controller to create the blueprint
-bp = AdminController().bp
+admin_controller = AdminController()
+bp = admin_controller.bp

@@ -1,6 +1,4 @@
-// Ensure there's no reference to UserAccounts within UserAccountsTable.js
-// The component should only handle displaying the table and related dialogs
-
+// src/components/admin/UserAccountsTable.js
 import React, { useState } from 'react';
 import {
   Table,
@@ -19,26 +17,40 @@ import {
   Button,
   TextField,
   Alert,
-  Typography, // Ensure Typography is imported
+  Typography,
+  CircularProgress,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
+import RestoreIcon from '@mui/icons-material/Restore'; // Icon for Re-enable
 import axios from 'axios';
 
 const UserAccountsTable = ({ users, refreshUsers }) => {
   const [editUser, setEditUser] = useState(null);
   const [suspendUser, setSuspendUser] = useState(null);
+  const [reenableUser, setReenableUser] = useState(null); // State for re-enabling user
   const [updatedUser, setUpdatedUser] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
+  // Open edit dialog
   const handleOpenEdit = (user) => {
     setEditUser(user);
-    setUpdatedUser(user);
+    setUpdatedUser({
+      email: user.email || '',
+      role: user.role || '',
+      // Add other fields as necessary
+    });
     setError('');
     setSuccess('');
   };
 
+  // Close edit dialog
   const handleCloseEdit = () => {
     setEditUser(null);
     setUpdatedUser({});
@@ -46,10 +58,19 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
     setSuccess('');
   };
 
+  // Handle updating user
   const handleUpdateUser = async () => {
     setError('');
     setSuccess('');
+    setLoading(true);
     try {
+      // Basic validation
+      if (!updatedUser.email || !updatedUser.role) {
+        setError('Email and Role are required');
+        setLoading(false);
+        return;
+      }
+
       await axios.put(`http://localhost:5000/api/user_admin/update_user/${editUser.username}`, updatedUser);
       setSuccess('User updated successfully');
       refreshUsers();
@@ -57,24 +78,30 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || 'Failed to update user');
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Open suspend dialog
   const handleOpenSuspend = (user) => {
     setSuspendUser(user);
     setError('');
     setSuccess('');
   };
 
+  // Close suspend dialog
   const handleCloseSuspend = () => {
     setSuspendUser(null);
     setError('');
     setSuccess('');
   };
 
+  // Handle suspending user
   const handleSuspendUser = async () => {
     setError('');
     setSuccess('');
+    setLoading(true);
     try {
       await axios.patch(`http://localhost:5000/api/user_admin/suspend_user/${suspendUser.username}`);
       setSuccess('User suspended successfully');
@@ -83,6 +110,40 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || 'Failed to suspend user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open re-enable dialog
+  const handleOpenReenable = (user) => {
+    setReenableUser(user);
+    setError('');
+    setSuccess('');
+  };
+
+  // Close re-enable dialog
+  const handleCloseReenable = () => {
+    setReenableUser(null);
+    setError('');
+    setSuccess('');
+  };
+
+  // Handle re-enabling user
+  const handleReenableUser = async () => {
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    try {
+      await axios.patch(`http://localhost:5000/api/user_admin/reenable_user/${reenableUser.username}`);
+      setSuccess('User re-enabled successfully');
+      refreshUsers();
+      handleCloseReenable();
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Failed to re-enable user');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,34 +163,52 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
           {users.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} align="center">
-                <Typography>No users found.</Typography> {/* Ensure Typography is used correctly */}
+                <Typography>No users found.</Typography>
               </TableCell>
             </TableRow>
           ) : (
             users.map((user, index) => (
-              <TableRow key={index}>
-                <TableCell>{user.username}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.role}</TableCell>
-                <TableCell>{user.suspended ? 'Suspended' : 'Active'}</TableCell>
-                <TableCell align="right">
-                  <Tooltip title="Edit">
-                    <IconButton onClick={() => handleOpenEdit(user)}>
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Suspend">
-                    <IconButton onClick={() => handleOpenSuspend(user)}>
-                      <BlockIcon />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
+              user ? ( // Ensure user is not null
+                <TableRow key={index}>
+                  <TableCell>{user.username}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.role}</TableCell>
+                  <TableCell>{user.suspended ? 'Suspended' : 'Active'}</TableCell>
+                  <TableCell align="right">
+                    {/* Edit Icon */}
+                    <Tooltip title="Edit">
+                      <IconButton onClick={() => handleOpenEdit(user)}>
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    {/* Suspend or Re-enable Icon based on user status */}
+                    {user.suspended ? (
+                      <Tooltip title="Re-enable">
+                        <IconButton onClick={() => handleOpenReenable(user)}>
+                          <RestoreIcon />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="Suspend">
+                        <IconButton onClick={() => handleOpenSuspend(user)}>
+                          <BlockIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <TableRow key={index}>
+                  <TableCell colSpan={5} align="center">
+                    <Typography>Invalid user data.</Typography>
+                  </TableCell>
+                </TableRow>
+              )
             ))
           )}
         </TableBody>
       </Table>
-      
+
       {/* Edit User Dialog */}
       <Dialog open={Boolean(editUser)} onClose={handleCloseEdit}>
         <DialogTitle>Edit User</DialogTitle>
@@ -145,25 +224,33 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
             value={updatedUser.email || ''}
             onChange={(e) => setUpdatedUser({ ...updatedUser, email: e.target.value })}
           />
-          <TextField
-            margin="dense"
-            label="Role"
-            name="role"
-            fullWidth
-            variant="standard"
-            value={updatedUser.role || ''}
-            onChange={(e) => setUpdatedUser({ ...updatedUser, role: e.target.value })}
-            helperText="e.g., admin, buyer, seller, used_car_agent"
-          />
+          <FormControl fullWidth variant="standard" margin="dense">
+            <InputLabel>Role</InputLabel>
+            <Select
+              label="Role"
+              name="role"
+              value={updatedUser.role || ''}
+              onChange={(e) => setUpdatedUser({ ...updatedUser, role: e.target.value })}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="buyer">Buyer</MenuItem>
+              <MenuItem value="seller">Seller</MenuItem>
+              <MenuItem value="used_car_agent">Used Car Agent</MenuItem>
+              {/* Add other roles as needed */}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseEdit}>Cancel</Button>
-          <Button onClick={handleUpdateUser} variant="contained" color="primary">
-            Update
+          <Button onClick={handleUpdateUser} variant="contained" color="primary" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : 'Update'}
           </Button>
         </DialogActions>
       </Dialog>
-      
+
       {/* Suspend User Dialog */}
       <Dialog open={Boolean(suspendUser)} onClose={handleCloseSuspend}>
         <DialogTitle>Suspend User</DialogTitle>
@@ -174,13 +261,29 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseSuspend}>Cancel</Button>
-          <Button onClick={handleSuspendUser} variant="contained" color="secondary">
-            Suspend
+          <Button onClick={handleSuspendUser} variant="contained" color="secondary" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : 'Suspend'}
           </Button>
         </DialogActions>
       </Dialog>
-    </TableContainer>
-  );
-};
+
+      {/* Re-enable User Dialog */}
+      <Dialog open={Boolean(reenableUser)} onClose={handleCloseReenable}>
+        <DialogTitle>Re-enable User</DialogTitle>
+        <DialogContent>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+          <Typography>Are you sure you want to re-enable user "{reenableUser?.username}"?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseReenable}>Cancel</Button>
+          <Button onClick={handleReenableUser} variant="contained" color="primary" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : 'Re-enable'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+</TableContainer>
+);
+    };
 
 export default UserAccountsTable;

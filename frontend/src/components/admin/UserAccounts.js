@@ -10,11 +10,14 @@ import {
   DialogActions,
   TextField,
   Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
 import UserAccountsTable from './UserAccountsTable';
-import SearchBar from '../common/SearchBar';
-
 
 const UserAccounts = () => {
   const [users, setUsers] = useState([]);
@@ -27,28 +30,68 @@ const UserAccounts = () => {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  const fetchUsers = async (query = '') => {
+  const [filters, setFilters] = useState({
+    username: '',
+    email: '',
+    role: '',
+    status: '',
+  });
+  const [loading, setLoading] = useState(false);
+
+  // Function to fetch users based on filters
+  const fetchUsers = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const response = await axios.get(`http://localhost:5000/api/user_admin/view_users`, {
-        params: { username: query },
-      });
-      setUsers([response.data]); // Assuming `view_users` returns a single user based on username
+      const params = {};
+      if (filters.username) params.username = filters.username;
+      if (filters.email) params.email = filters.email;
+      if (filters.role) params.role = filters.role;
+      if (filters.status) params.status = filters.status;
+
+      const response = await axios.get('http://localhost:5000/api/user_admin/view_users', { params });
+      setUsers(response.data);
     } catch (err) {
       console.error(err);
       setError('Failed to fetch users');
+    } finally {
+      setLoading(false);
     }
   };
-  
+
+  // Fetch users on component mount
   useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line
   }, []);
-  
+
+  // Handle input changes for filters
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
+  // Apply filters
+  const handleApplyFilters = () => {
+    fetchUsers();
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setFilters({
+      username: '',
+      email: '',
+      role: '',
+      status: '',
+    });
+    fetchUsers();
+  };
+
+  // Open create user dialog
   const handleOpenCreate = () => {
     setOpenCreate(true);
   };
-  
+
+  // Close create user dialog
   const handleCloseCreate = () => {
     setOpenCreate(false);
     setNewUser({
@@ -60,11 +103,18 @@ const UserAccounts = () => {
     setError('');
     setSuccess('');
   };
-  
+
+  // Handle creating a new user
   const handleCreateUser = async () => {
     setError('');
     setSuccess('');
     try {
+      // Basic validation
+      if (!newUser.username || !newUser.password || !newUser.email || !newUser.role) {
+        setError('All fields are required');
+        return;
+      }
+
       await axios.post('http://localhost:5000/api/user_admin/create_user', newUser);
       setSuccess('User created successfully');
       fetchUsers(); // Refresh the user list
@@ -74,31 +124,91 @@ const UserAccounts = () => {
       setError(err.response?.data?.message || 'Failed to create user');
     }
   };
-  
-  const handleSearch = () => {
-    fetchUsers(searchQuery);
-  };
-  
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
         User Accounts
       </Typography>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-        <SearchBar
-          placeholder="Search by username"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onSearch={handleSearch}
-        />
-        <Button variant="contained" color="primary" onClick={handleOpenCreate}>
-          Create User
-        </Button>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+        {/* Filter Section */}
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <TextField
+            label="Username"
+            name="username"
+            value={filters.username}
+            onChange={handleFilterChange}
+            variant="outlined"
+            size="small"
+          />
+          <TextField
+            label="Email"
+            name="email"
+            value={filters.email}
+            onChange={handleFilterChange}
+            variant="outlined"
+            size="small"
+          />
+          <FormControl variant="outlined" size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Role</InputLabel>
+            <Select
+              label="Role"
+              name="role"
+              value={filters.role}
+              onChange={handleFilterChange}
+            >
+              <MenuItem value="">
+                <em>All</em>
+              </MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="buyer">Buyer</MenuItem>
+              <MenuItem value="seller">Seller</MenuItem>
+              <MenuItem value="used_car_agent">Used Car Agent</MenuItem>
+              {/* Add other roles as needed */}
+            </Select>
+          </FormControl>
+          <FormControl variant="outlined" size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              label="Status"
+              name="status"
+              value={filters.status}
+              onChange={handleFilterChange}
+            >
+              <MenuItem value="">
+                <em>All</em>
+              </MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="suspended">Suspended</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="contained" color="primary" onClick={handleApplyFilters}>
+            Apply Filters
+          </Button>
+          <Button variant="outlined" color="secondary" onClick={handleClearFilters}>
+            Clear Filters
+          </Button>
+        </Box>
+        <Box sx={{ alignSelf: 'flex-end' }}>
+          <Button variant="contained" color="success" onClick={handleOpenCreate}>
+            Create User
+          </Button>
+        </Box>
       </Box>
+      {/* Display error or success messages */}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-      <UserAccountsTable users={users} refreshUsers={fetchUsers} />
-      
+      {/* Display loading indicator or user table */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <UserAccountsTable users={users} refreshUsers={fetchUsers} />
+      )}
+
       {/* Create User Dialog */}
       <Dialog open={openCreate} onClose={handleCloseCreate}>
         <DialogTitle>Create New User</DialogTitle>
@@ -133,16 +243,24 @@ const UserAccounts = () => {
             value={newUser.email}
             onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
           />
-          <TextField
-            margin="dense"
-            label="Role"
-            name="role"
-            fullWidth
-            variant="standard"
-            value={newUser.role}
-            onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-            helperText="e.g., admin, buyer, seller, used_car_agent"
-          />
+          <FormControl fullWidth variant="standard" margin="dense">
+            <InputLabel>Role</InputLabel>
+            <Select
+              label="Role"
+              name="role"
+              value={newUser.role}
+              onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              <MenuItem value="admin">Admin</MenuItem>
+              <MenuItem value="buyer">Buyer</MenuItem>
+              <MenuItem value="seller">Seller</MenuItem>
+              <MenuItem value="used_car_agent">Used Car Agent</MenuItem>
+              {/* Add other roles as needed */}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseCreate}>Cancel</Button>
@@ -152,7 +270,7 @@ const UserAccounts = () => {
         </DialogActions>
       </Dialog>
     </Box>
-  );
-};
+    );  
+  };
 
 export default UserAccounts;
