@@ -1,3 +1,4 @@
+# backend/controllers/user_controller.py
 from flask import Blueprint, request, jsonify
 from models.user import User
 from models.profile import Profile
@@ -18,27 +19,32 @@ class UserController:
             username = data.get('username')
             password = data.get('password')
 
+            if not username or not password:
+                return jsonify(False), 400  # Bad Request if missing credentials
+
             user = User.get_user_by_username(username)
             if user and user.get('password') == password and not user.get('suspended'):
                 profile = Profile.get_profile_by_role(user.get('role'))
 
-                response_data = {
-                    "message": "Login successful",
-                    "profile": {
-                        "role": profile.get('role'),
-                        "rights": profile.get('rights'),
-                        "user_id": str(user.get('_id'))
+                if profile:
+                    # Combine user data and profile data
+                    login_data = {
+                        "user": user,
+                        "profile": profile
                     }
-                }
+                    return jsonify(login_data), 200
+                else:
+                    # Profile data is missing
+                    return jsonify(False), 200  # Alternatively, use a different status code like 500
 
-                return jsonify(response_data), 200
-            return jsonify({"message": "Invalid credentials or account suspended"}), 401
+            # Invalid credentials or account suspended
+            return jsonify(False), 401  # Unauthorized
 
         except Exception as e:
             print("Error occurred during login:", e)
             traceback.print_exc()
-            return jsonify({"message": "Internal server error"}), 500
+            return jsonify(False), 500  # Internal Server Error
 
     def logout(self):
         # Since there's no authentication mechanism, this is a placeholder
-        return jsonify({"message": "Logout successful"}), 200
+        return jsonify(True), 200  # Always succeeds

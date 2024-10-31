@@ -9,8 +9,13 @@ const ProtectedRoute = ({ children, roles }) => {
   }
 
   try {
-    const user = JSON.parse(userData);
-    const userRole = user.profile.role;
+    const user = JSON.parse(userData); 
+    const userRole = user.role; // Safely access user.profile.role
+
+    if (!userRole) {
+      console.warn('User role is undefined or missing');
+      return <Navigate to="/" replace />;
+    }
 
     if (roles && !roles.includes(userRole)) {
       return <Navigate to="/" replace />;

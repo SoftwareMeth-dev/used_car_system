@@ -1,16 +1,27 @@
 # backend/models/user.py
 from utils.db import db
-from bson import ObjectId  # Import ObjectId for handling MongoDB IDs
+from bson import ObjectId
 
 users_collection = db['users']
+
+def serialize_user(user):
+    if not user:
+        return None
+    user['_id'] = str(user['_id'])
+    return user
+
+def serialize_users(users):
+    return [serialize_user(user) for user in users]
 
 class User:
     @staticmethod
     def create_user(user_data):
         """
         Inserts a new user into the users collection.
+        Returns True if the operation is successful, otherwise False.
         """
-        return users_collection.insert_one(user_data)
+        result = users_collection.insert_one(user_data)
+        return result.inserted_id is not None
 
     @staticmethod
     def get_user_by_username(username=None):
@@ -22,10 +33,12 @@ class User:
         """
         if username:
             # If a specific username is provided, return that user
-            return users_collection.find_one({"username": username})
+            user = users_collection.find_one({"username": username})
+            return serialize_user(user)
         else:
             # If no username is provided, return all users
-            return list(users_collection.find())
+            users = list(users_collection.find())
+            return serialize_users(users)
 
     @staticmethod
     def filter_users(username=None, email=None, role=None, status=None):
@@ -52,7 +65,8 @@ class User:
             elif status.lower() == 'suspended':
                 query["suspended"] = True
 
-        return list(users_collection.find(query))
+        users = users_collection.find(query)
+        return serialize_users(users)
 
     @staticmethod
     def get_user_by_id(user_id):
@@ -67,7 +81,8 @@ class User:
         except Exception as e:
             print(f"Error converting user_id to ObjectId: {e}")
             return None
-        return users_collection.find_one({"_id": oid})
+        user = users_collection.find_one({"_id": oid})
+        return serialize_user(user)
 
     @staticmethod
     def update_user(username, update_data):
@@ -76,9 +91,10 @@ class User:
 
         :param username: (str) The username of the user to update.
         :param update_data: (dict) The data to update.
-        :return: (UpdateResult) The result of the update operation.
+        :return: (bool) True if update was successful, else False.
         """
-        return users_collection.update_one({"username": username}, {"$set": update_data})
+        result = users_collection.update_one({"username": username}, {"$set": update_data})
+        return result.modified_count > 0
 
     @staticmethod
     def suspend_user(username):
@@ -86,9 +102,10 @@ class User:
         Suspends a user by setting their 'suspended' field to True.
 
         :param username: (str) The username of the user to suspend.
-        :return: (UpdateResult) The result of the update operation.
+        :return: (bool) True if suspend was successful, else False.
         """
-        return users_collection.update_one({"username": username}, {"$set": {"suspended": True}})
+        result = users_collection.update_one({"username": username}, {"$set": {"suspended": True}})
+        return result.modified_count > 0
 
     @staticmethod
     def reenable_user(username):
@@ -96,9 +113,10 @@ class User:
         Re-enables a user by setting their 'suspended' field to False.
 
         :param username: (str) The username of the user to re-enable.
-        :return: (UpdateResult) The result of the update operation.
+        :return: (bool) True if re-enable was successful, else False.
         """
-        return users_collection.update_one({"username": username}, {"$set": {"suspended": False}})
+        result = users_collection.update_one({"username": username}, {"$set": {"suspended": False}})
+        return result.modified_count > 0
 
     @staticmethod
     def suspend_users_by_role(role):
@@ -106,9 +124,10 @@ class User:
         Suspends all users with the specified role.
 
         :param role: (str) The role of users to suspend.
-        :return: (UpdateResult) The result of the update operation.
+        :return: (bool) True if any users were suspended, else False.
         """
-        return users_collection.update_many({"role": role}, {"$set": {"suspended": True}})
+        result = users_collection.update_many({"role": role}, {"$set": {"suspended": True}})
+        return result.modified_count > 0
 
     @staticmethod
     def reenable_users_by_role(role):
@@ -116,9 +135,10 @@ class User:
         Re-enables all users with the specified role.
 
         :param role: (str) The role of users to re-enable.
-        :return: (UpdateResult) The result of the update operation.
+        :return: (bool) True if any users were re-enabled, else False.
         """
-        return users_collection.update_many({"role": role}, {"$set": {"suspended": False}})
+        result = users_collection.update_many({"role": role}, {"$set": {"suspended": False}})
+        return result.modified_count > 0
 
     @staticmethod
     def search_users(query):
@@ -126,9 +146,10 @@ class User:
         Searches users by username or email using a regex.
 
         :param query: (str) The search query.
-        :return: (Cursor) MongoDB cursor with matching users.
+        :return: (list) List of user dictionaries matching the search.
         """
-        return users_collection.find({"$or": [
+        cursor = users_collection.find({"$or": [
             {"username": {"$regex": query, "$options": "i"}},
             {"email": {"$regex": query, "$options": "i"}}
         ]})
+        return serialize_users(cursor)

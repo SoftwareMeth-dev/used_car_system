@@ -20,6 +20,7 @@ const Login = () => {
   });
 
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false); // Optional: To handle loading state
 
   const handleChange = (e) => {
     setCredentials({
@@ -28,49 +29,67 @@ const Login = () => {
     });
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  console.log('Attempting to log in with:', credentials);
-  try {
-    const response = await axios.post('http://localhost:5000/api/user_admin/login', credentials);
-    console.log('Login Response:', response.data);
-    if (response.data.profile) {
-      // Save user data to localStorage
-      localStorage.setItem('user', JSON.stringify(response.data));
-      console.log('User data saved to localStorage');
-      console.log(response.data.profile.role)
-      // Redirect based on role
-      switch (response.data.profile.role) {
-        case 'user_admin':
-          console.log('Redirecting to admin dashboard');
-          navigate('/admin');
-          break;
-        case 'used_car_agent':
-          console.log('Redirecting to agent dashboard');
-          navigate('/used_car_agent'); // Ensure this matches ProtectedRoute
-          break;
-        case 'seller':
-          console.log('Redirecting to seller dashboard');
-          navigate('/seller');
-          break;
-        case 'buyer':
-          console.log('Redirecting to buyer dashboard');
-          navigate('/buyer');
-          break;
-        default:
-          console.log('Redirecting to home');
-          navigate('/');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true); // Start loading
+    console.log('Attempting to log in with:', credentials);
+    try {
+      const response = await axios.post('http://localhost:5000/api/user_admin/login', credentials);
+      console.log('Login Response:', response.data);
+
+      // Check if response.data is truthy (i.e., profile data)
+      if (response.data && typeof response.data === 'object') {
+        const profile = response.data;
+
+        // Save profile data to localStorage
+        localStorage.setItem('user', JSON.stringify(profile));
+        console.log('User profile saved to localStorage');
+
+        // Redirect based on role
+        switch (profile.role) {
+          case 'user_admin':
+            console.log('Redirecting to admin dashboard');
+            navigate('/admin');
+            break;
+          case 'used_car_agent':
+            console.log('Redirecting to agent dashboard');
+            navigate('/used_car_agent'); // Ensure this matches ProtectedRoute
+            break;
+          case 'seller':
+            console.log('Redirecting to seller dashboard');
+            navigate('/seller');
+            break;
+          case 'buyer':
+            console.log('Redirecting to buyer dashboard');
+            navigate('/buyer');
+            break;
+          default:
+            console.log('Redirecting to home');
+            navigate('/');
+        }
+      } else {
+        // response.data is false
+        setError('Login failed: Invalid credentials or profile not found.');
+        console.log('Login failed: Invalid credentials or profile not found.');
       }
-    } else {
-      setError('Login failed: No profile information received.');
-      console.log('Login failed: No profile information received.');
+    } catch (err) {
+      console.error('Login Error:', err);
+      if (err.response) {
+        if (err.response.status === 401) {
+          setError('Invalid credentials or account suspended.');
+        } else if (err.response.status === 500) {
+          setError('Internal server error. Please try again later.');
+        } else {
+          setError(err.response.data || 'Login failed.');
+        }
+      } else {
+        setError('Network error. Please check your connection.');
+      }
+    } finally {
+      setLoading(false); // End loading
     }
-  } catch (err) {
-    console.error('Login Error:', err);
-    setError(err.response?.data?.message || 'Login failed');
-  }
-};
+  };
 
   return (
     <Container maxWidth="sm">
@@ -115,8 +134,9 @@ const handleSubmit = async (e) => {
             variant="contained"
             color="primary"
             sx={{ mt: 3 }}
+            disabled={loading} // Optional: Disable button while loading
           >
-            Login
+            {loading ? 'Logging in...' : 'Login'}
           </Button>
         </Box>
       </Box>

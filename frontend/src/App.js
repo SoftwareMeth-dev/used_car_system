@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 function App() {
   return (
     <Routes>
+      {/* Login Page */}
       <Route path="/" element={<Login />} />
 
       {/* Admin Dashboard */}

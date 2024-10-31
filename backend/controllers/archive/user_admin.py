@@ -31,15 +31,15 @@ class AdminController(UserController):
         # Basic validation
         required_fields = ["username", "password", "email", "role"]
         if not all(field in data for field in required_fields):
-            return jsonify({"message": "Missing required fields"}), 400
+            return jsonify(False), 400
 
         # Check if user already exists
         if User.get_user_by_username(data.get('username')):
-            return jsonify({"message": "Username already exists"}), 400
+            return jsonify(False), 400
 
-        # Create user
-        User.create_user(data)
-        return jsonify({"message": "User created successfully"}), 201
+        # Create user and return result as a boolean
+        success = User.create_user(data)
+        return jsonify(success), 200
 
     def view_users(self):
         """
@@ -53,38 +53,34 @@ class AdminController(UserController):
         # Fetch users based on the provided filters
         users = User.filter_users(username=username, email=email, role=role, status=status)
 
-        # Convert ObjectId to string for each user
-        for user in users:
-            user['_id'] = str(user['_id'])
-
         return jsonify(users), 200
 
     def update_user(self, username):
         data = request.json
         if not data:
-            return jsonify({"message": "No data provided for update"}), 400
+            return jsonify(False), 400
 
         # Update user
-        result = User.update_user(username, data)
-        if result.matched_count == 0:
-            return jsonify({"message": "User not found"}), 404
+        success = User.update_user(username, data)
+        if not success:
+            return jsonify(False), 404
 
-        return jsonify({"message": "User updated successfully"}), 200
+        return jsonify(success), 200
 
     def suspend_user(self, username):
-        result = User.suspend_user(username)
-        if result.matched_count == 0:
-            return jsonify({"message": "User not found"}), 404
-        return jsonify({"message": "User suspended successfully"}), 200
+        success = User.suspend_user(username)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
 
     def reenable_user(self, username):
         """
         Re-enable a suspended user account.
         """
-        result = User.reenable_user(username)
-        if result.matched_count == 0:
-            return jsonify({"message": "User not found"}), 404
-        return jsonify({"message": "User re-enabled successfully"}), 200
+        success = User.reenable_user(username)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
 
     def search_users(self):
         """
@@ -92,29 +88,26 @@ class AdminController(UserController):
         """
         query = request.args.get('query')
         if not query:
-            return jsonify({"message": "Query parameter is required"}), 400
+            return jsonify([]), 400
 
-        users_cursor = User.search_users(query)
-        users_list = list(users_cursor)
-        for user in users_list:
-            user['_id'] = str(user['_id'])
-        return jsonify(users_list), 200
+        users = User.search_users(query)
+        return jsonify(users), 200
 
     def create_profile(self):
         data = request.json
         # Basic validation
         required_fields = ["role", "rights"]
         if not all(field in data for field in required_fields):
-            return jsonify({"message": "Missing required fields"}), 400
+            return jsonify(False), 400
 
         # Check if profile already exists
         existing_profile = Profile.get_profile_by_role(data.get('role'))
         if existing_profile:
-            return jsonify({"message": "Profile with this role already exists"}), 400
+            return jsonify(False), 400
 
         # Create profile
-        Profile.create_profile(data)
-        return jsonify({"message": "Profile created successfully"}), 201
+        success = Profile.create_profile(data)
+        return jsonify(success), 200
 
     def view_profiles(self):
         """
@@ -125,44 +118,37 @@ class AdminController(UserController):
         # Fetch profiles based on the provided role
         profiles = Profile.get_profile_by_role(role)
 
-        # Check if profiles is a list (all profiles) or a single profile document
-        if isinstance(profiles, list):  # If all profiles are returned
-            for profile in profiles:
-                profile['_id'] = str(profile['_id'])
-        elif profiles:  # If a single profile document is returned
-            profiles['_id'] = str(profiles['_id'])
-
         return jsonify(profiles), 200
 
     def update_profile(self, role):
         data = request.json
         if not data:
-            return jsonify({"message": "No data provided for update"}), 400
+            return jsonify(False), 400
 
         # Update profile
-        result = Profile.update_profile(role, data)
-        if result.matched_count == 0:
-            return jsonify({"message": "Profile not found"}), 404
+        success = Profile.update_profile(role, data)
+        if not success:
+            return jsonify(False), 404
 
-        return jsonify({"message": "Profile updated successfully"}), 200
+        return jsonify(success), 200
 
     def suspend_profile(self, role):
         """
         Suspends a profile and all associated user accounts.
         """
-        result = Profile.suspend_profile(role)
-        if result.matched_count == 0:
-            return jsonify({"message": "Profile not found"}), 404
-        return jsonify({"message": "Profile and associated users suspended successfully"}), 200
+        success = Profile.suspend_profile(role)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
 
     def reenable_profile(self, role):
         """
         Re-enables a profile and all associated user accounts.
         """
-        result = Profile.reenable_profile(role)
-        if result.matched_count == 0:
-            return jsonify({"message": "Profile not found"}), 404
-        return jsonify({"message": "Profile and associated users re-enabled successfully"}), 200
+        success = Profile.reenable_profile(role)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
 
     def search_profiles(self):
         """
@@ -170,13 +156,10 @@ class AdminController(UserController):
         """
         query = request.args.get('query')
         if not query:
-            return jsonify({"message": "Query parameter is required"}), 400
+            return jsonify([]), 400
 
-        profiles_cursor = Profile.search_profiles(query)
-        profiles_list = list(profiles_cursor)
-        for profile in profiles_list:
-            profile['_id'] = str(profile['_id'])
-        return jsonify(profiles_list), 200
+        profiles = Profile.search_profiles(query)
+        return jsonify(profiles), 200
 
 # Instantiate the controller to create the blueprint
 admin_controller = AdminController()

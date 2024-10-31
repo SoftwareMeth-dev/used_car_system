@@ -122,7 +122,6 @@ const UserAccounts = () => {
     setSuccess('');
   };
 
-  // Handle creating a new user
   const handleCreateUser = async () => {
     setError('');
     setSuccess('');
@@ -132,11 +131,16 @@ const UserAccounts = () => {
         setError('All fields are required');
         return;
       }
-
-      await axios.post('http://localhost:5000/api/user_admin/create_user', newUser);
-      setSuccess('User created successfully');
-      fetchUsers(); // Refresh the user list
-      handleCloseCreate();
+  
+      const response = await axios.post('http://localhost:5000/api/user_admin/create_user', newUser);
+  
+      if (response.data === true) { // Check the boolean response
+        setSuccess('User created successfully');
+        fetchUsers(); // Refresh the user list
+        handleCloseCreate();
+      } else {
+        setError('Failed to create user');
+      }
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || 'Failed to create user');

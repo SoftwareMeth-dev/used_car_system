@@ -6,24 +6,36 @@ from bson.errors import InvalidId
 buyer_listing_collection = db['buyer_shortlists']
 used_car_collection = db['used_car_listings']
 
+def serialize_listing(listing):
+    if not listing:
+        return None
+    listing['_id'] = str(listing['_id'])
+    listing['seller_id'] = str(listing['seller_id']) if listing.get('seller_id') else None
+    listing['created_at'] = listing['created_at'].isoformat() if listing.get('created_at') else None
+    return listing
+
+def serialize_listings(listings):
+    return [serialize_listing(listing) for listing in listings]
 
 class BuyerListing:
     @staticmethod
     def save_listing(user_id, listing_id):
         """
         Saves a listing to the buyer's shortlist by converting listing_id to ObjectId.
+        Returns True if the operation is successful, otherwise False.
         """
         try:
             listing_oid = ObjectId(listing_id)
         except InvalidId:
             print(f"Invalid listing_id: {listing_id}")
-            return None  # Or handle the error as needed
+            return False  # Indicate failure due to invalid listing_id
         
-        return buyer_listing_collection.update_one(
+        result = buyer_listing_collection.update_one(
             {"user_id": user_id},
             {"$addToSet": {"shortlist": listing_oid}},
             upsert=True
         )
+        return result.modified_count > 0 or result.upserted_id is not None
 
     @staticmethod
     def get_shortlist(user_id):
@@ -32,12 +44,13 @@ class BuyerListing:
             # Convert ObjectIds to strings for consistency in responses
             return [str(oid) for oid in user.get('shortlist', [])]
         return []
-    
+
     @staticmethod
     def search_shortlist(user_id, query=None, listing_id=None):
         """
         Searches the buyer's shortlist based on the query or listing_id.
         Converts listing_ids to ObjectId before querying.
+        Returns a list of listing dictionaries.
         """
         shortlist_doc = buyer_listing_collection.find_one({"user_id": user_id})
         if not shortlist_doc:
@@ -81,8 +94,5 @@ class BuyerListing:
                 {"year": {"$regex": query, "$options": "i"}}
             ]
         
-        # Print the full query document for debugging
-        print(f"MongoDB Query: {mongo_query}")
-        
         # Perform the search
-        return used_car_collection.find(mongo_query)
+        return serialize_listings(used_car_collection.find(mongo_query))
