@@ -15,10 +15,16 @@ import {
   FormControl,
   InputLabel,
   CircularProgress,
+  Snackbar, // Import Snackbar
+  Alert as MuiAlert, // Import Alert for Snackbar
 } from '@mui/material';
 import axios from 'axios';
 import UserAccountsTable from './UserAccountsTable';
 import config from '../../config';
+
+const MuiAlertComponent = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
 
 const UserAccounts = () => {
   const [users, setUsers] = useState([]);
@@ -39,6 +45,11 @@ const UserAccounts = () => {
   });
   const [loading, setLoading] = useState(false);
   const [availableRoles, setAvailableRoles] = useState([]); // For dynamic role options
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success', // 'success' | 'error' | 'warning' | 'info'
+  });
 
   // Function to fetch available roles from profiles
   const fetchAvailableRoles = async () => {
@@ -54,6 +65,11 @@ const UserAccounts = () => {
       console.error(err);
       // Optionally set a default list or notify the user
       setAvailableRoles(['admin', 'user']); // Example default roles
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch available roles. Using default roles.',
+        severity: 'warning',
+      });
     }
   };
 
@@ -73,6 +89,11 @@ const UserAccounts = () => {
     } catch (err) {
       console.error(err);
       setError('Failed to fetch users');
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch users.',
+        severity: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -132,6 +153,11 @@ const UserAccounts = () => {
       // Basic validation
       if (!newUser.username || !newUser.password || !newUser.email || !newUser.role) {
         setError('All fields are required');
+        setSnackbar({
+          open: true,
+          message: 'All fields are required.',
+          severity: 'error',
+        });
         return;
       }
 
@@ -139,20 +165,48 @@ const UserAccounts = () => {
 
       if (response.status === 200 && response.data === true) { // Check the boolean response
         setSuccess('User created successfully');
+        setSnackbar({
+          open: true,
+          message: 'User created successfully.',
+          severity: 'success',
+        });
         fetchUsers(); // Refresh the user list
         handleCloseCreate();
       } else {
         setError('Failed to create user');
+        setSnackbar({
+          open: true,
+          message: 'Failed to create user.',
+          severity: 'error',
+        });
       }
     } catch (err) {
       console.error(err);
       // Extract error message from response if available
       if (err.response && err.response.status === 400) {
         setError('User already exists or invalid data provided');
+        setSnackbar({
+          open: true,
+          message: 'User already exists or invalid data provided.',
+          severity: 'error',
+        });
       } else {
         setError('Failed to create user');
+        setSnackbar({
+          open: true,
+          message: 'Failed to create user.',
+          severity: 'error',
+        });
       }
     }
+  };
+
+  // Handle closing the Snackbar
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbar({ ...snackbar, open: false });
   };
 
   return (
@@ -226,15 +280,16 @@ const UserAccounts = () => {
         </Box>
       </Box>
       {/* Display error or success messages */}
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {/* Remove existing Alerts since we'll use Snackbars */}
+      {/* {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>} */}
       {/* Display loading indicator or user table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <UserAccountsTable users={users} refreshUsers={fetchUsers} />
+        <UserAccountsTable users={users} refreshUsers={fetchUsers} setSnackbar={setSnackbar} />
       )}
 
       {/* Create User Dialog */}
@@ -290,11 +345,23 @@ const UserAccounts = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseCreate}>Cancel</Button>
-          <Button onClick={handleCreateUser} variant="contained" color="primary">
-            Create
+          <Button onClick={handleCreateUser} variant="contained" color="primary" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for global success and error messages */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <MuiAlertComponent onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </MuiAlertComponent>
+      </Snackbar>
     </Box>
   );  
 };

@@ -16,13 +16,14 @@ import {
   DialogActions,
   Button,
   TextField,
-  Alert,
   Typography,
   CircularProgress,
   FormControl,
   Select,
   MenuItem,
   InputLabel,
+  Snackbar,
+  Alert as MuiAlert,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
@@ -30,15 +31,22 @@ import RestoreIcon from '@mui/icons-material/Restore'; // Icon for Re-enable
 import axios from 'axios';
 import config from '../../config';
 
-const UserAccountsTable = ({ users, refreshUsers }) => {
+const MuiAlertComponent = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
+
+const UserAccountsTable = ({ users, refreshUsers, setSnackbar }) => {
   const [editUser, setEditUser] = useState(null);
   const [suspendUser, setSuspendUser] = useState(null);
   const [reenableUser, setReenableUser] = useState(null); // State for re-enabling user
   const [updatedUser, setUpdatedUser] = useState({});
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [availableRoles, setAvailableRoles] = useState([]); // To dynamically fetch roles for editing
+  const [snackbarLocal, setSnackbarLocal] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   // Function to fetch available roles from profiles
   const fetchAvailableRoles = async () => {
@@ -54,6 +62,11 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
       console.error(err);
       // Optionally set a default list or notify the user
       setAvailableRoles(['admin', 'user']); // Example default roles
+      setSnackbarLocal({
+        open: true,
+        message: 'Failed to fetch available roles. Using default roles.',
+        severity: 'warning',
+      });
     }
   };
 
@@ -65,43 +78,49 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
       role: user.role || '',
       // Add other fields as necessary
     });
-    setError('');
-    setSuccess('');
-    fetchAvailableRoles(); // Fetch roles when editing
   };
 
   // Close edit dialog
   const handleCloseEdit = () => {
     setEditUser(null);
     setUpdatedUser({});
-    setError('');
-    setSuccess('');
   };
 
   // Handle updating user
   const handleUpdateUser = async () => {
-    setError('');
-    setSuccess('');
+    if (!updatedUser.email || !updatedUser.role) {
+      setSnackbarLocal({
+        open: true,
+        message: 'Email and Role are required.',
+        severity: 'error',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // Basic validation
-      if (!updatedUser.email || !updatedUser.role) {
-        setError('Email and Role are required');
-        setLoading(false);
-        return;
-      }
-
       await axios.put(`${config.API_BASE_URL}/user_admin/update_user/${editUser.username}`, updatedUser);
-
-      setSuccess('User updated successfully');
+      setSnackbarLocal({
+        open: true,
+        message: 'User updated successfully.',
+        severity: 'success',
+      });
       refreshUsers();
       handleCloseEdit();
     } catch (err) {
       console.error(err);
       if (err.response && err.response.status === 404) {
-        setError('User not found');
+        setSnackbarLocal({
+          open: true,
+          message: 'User not found.',
+          severity: 'error',
+        });
       } else {
-        setError('Failed to update user');
+        setSnackbarLocal({
+          open: true,
+          message: 'Failed to update user.',
+          severity: 'error',
+        });
       }
     } finally {
       setLoading(false);
@@ -111,34 +130,39 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
   // Open suspend dialog
   const handleOpenSuspend = (user) => {
     setSuspendUser(user);
-    setError('');
-    setSuccess('');
   };
 
   // Close suspend dialog
   const handleCloseSuspend = () => {
     setSuspendUser(null);
-    setError('');
-    setSuccess('');
   };
 
   // Handle suspending user
   const handleSuspendUser = async () => {
-    setError('');
-    setSuccess('');
     setLoading(true);
     try {
       await axios.patch(`${config.API_BASE_URL}/user_admin/suspend_user/${suspendUser.username}`);
-
-      setSuccess('User suspended successfully');
+      setSnackbarLocal({
+        open: true,
+        message: `User "${suspendUser.username}" suspended successfully.`,
+        severity: 'success',
+      });
       refreshUsers();
       handleCloseSuspend();
     } catch (err) {
       console.error(err);
       if (err.response && err.response.status === 404) {
-        setError('User not found');
+        setSnackbarLocal({
+          open: true,
+          message: 'User not found.',
+          severity: 'error',
+        });
       } else {
-        setError('Failed to suspend user');
+        setSnackbarLocal({
+          open: true,
+          message: 'Failed to suspend user.',
+          severity: 'error',
+        });
       }
     } finally {
       setLoading(false);
@@ -148,38 +172,51 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
   // Open re-enable dialog
   const handleOpenReenable = (user) => {
     setReenableUser(user);
-    setError('');
-    setSuccess('');
   };
 
   // Close re-enable dialog
   const handleCloseReenable = () => {
     setReenableUser(null);
-    setError('');
-    setSuccess('');
   };
 
   // Handle re-enabling user
   const handleReenableUser = async () => {
-    setError('');
-    setSuccess('');
     setLoading(true);
     try {
       await axios.patch(`${config.API_BASE_URL}/user_admin/reenable_user/${reenableUser.username}`);
-
-      setSuccess('User re-enabled successfully');
+      setSnackbarLocal({
+        open: true,
+        message: `User "${reenableUser.username}" re-enabled successfully.`,
+        severity: 'success',
+      });
       refreshUsers();
       handleCloseReenable();
     } catch (err) {
       console.error(err);
       if (err.response && err.response.status === 404) {
-        setError('User not found');
+        setSnackbarLocal({
+          open: true,
+          message: 'User not found.',
+          severity: 'error',
+        });
       } else {
-        setError('Failed to re-enable user');
+        setSnackbarLocal({
+          open: true,
+          message: 'Failed to re-enable user.',
+          severity: 'error',
+        });
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle closing the local Snackbar
+  const handleCloseSnackbarLocal = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarLocal({ ...snackbarLocal, open: false });
   };
 
   return (
@@ -252,8 +289,6 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
       <Dialog open={Boolean(editUser)} onClose={handleCloseEdit}>
         <DialogTitle>Edit User</DialogTitle>
         <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
           <TextField
             margin="dense"
             label="Email"
@@ -294,8 +329,6 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
       <Dialog open={Boolean(suspendUser)} onClose={handleCloseSuspend}>
         <DialogTitle>Suspend User</DialogTitle>
         <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
           <Typography>Are you sure you want to suspend user "{suspendUser?.username}"?</Typography>
         </DialogContent>
         <DialogActions>
@@ -310,8 +343,6 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
       <Dialog open={Boolean(reenableUser)} onClose={handleCloseReenable}>
         <DialogTitle>Re-enable User</DialogTitle>
         <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
           <Typography>Are you sure you want to re-enable user "{reenableUser?.username}"?</Typography>
         </DialogContent>
         <DialogActions>
@@ -321,6 +352,18 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Local Snackbar for UserAccountsTable operations */}
+      <Snackbar
+        open={snackbarLocal.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbarLocal}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <MuiAlertComponent onClose={handleCloseSnackbarLocal} severity={snackbarLocal.severity} sx={{ width: '100%' }}>
+          {snackbarLocal.message}
+        </MuiAlertComponent>
+      </Snackbar>
     </TableContainer>
   );
 };

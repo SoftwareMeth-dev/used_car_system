@@ -11,7 +11,7 @@ class CreateProfileController:
     def register_routes(self):
         create_profile_bp.add_url_rule('/create_profile', view_func=self.create_profile, methods=['POST'])
 
-    def create_profile(self):
+    def create_profile(self): 
         data = request.json
         # Basic validation
         required_fields = ["role", "rights"]
@@ -21,6 +21,7 @@ class CreateProfileController:
         # Check if profile already exists
         existing_profile = Profile.get_profile_by_role(data.get('role'))
         if existing_profile:
+            print(data.get('role'))
             return jsonify(False), 400
 
         # Create profile

@@ -9,23 +9,42 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Alert,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
   CircularProgress,
+  Snackbar, // Import Snackbar
+  Alert as MuiAlert, // Import Alert for Snackbar
 } from '@mui/material';
 import axios from 'axios';
 import UserProfilesTable from './UserProfilesTable';
+import config from '../../config';
 
-const availableRightsList = [
-  'create',
-  'read',
-  'update',
-  'delete',
-  'suspend',
-  // Add more rights as needed
+const MuiAlertComponent = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
+
+const availableRightsList = ["track_views",
+"track_shortlists",
+"rate_review_agents",
+"search_cars",
+"view_listings",
+"save_shortlist",
+"search_shortlist",
+"view_shortlist",
+"use_loan_calculator",
+"create_listing",
+"view_listing",
+"update_listing",
+"delete_listing",
+"search_listing",
+"create_user",
+"view_user",
+"update_user",
+"suspend_user", 
+"search_user", 
+"manage_profiles", 
 ];
 
 const UserProfiles = () => {
@@ -35,43 +54,29 @@ const UserProfiles = () => {
     role: '',
     rights: [],
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState({
+    role: '',
+  });
   const [loading, setLoading] = useState(false);
   const [availableRoles, setAvailableRoles] = useState([]); // For dynamic role options
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success', // 'success' | 'error' | 'warning' | 'info'
+  });
 
-  // Function to fetch profiles
-  const fetchProfiles = async (query = '') => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = {};
-      if (query) params.role = query; // Assuming search by role
-
-      const response = await axios.get('http://localhost:5000/api/user_admin/view_profiles', { params });
-      if (query) {
-        if (response.data) {
-          setProfiles([response.data]); // Single profile
-        } else {
-          setProfiles([]); // No profile found
-        }
-      } else {
-        // Assume response.data is an array when no query is provided
-        setProfiles(Array.isArray(response.data) ? response.data : [response.data]);
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to fetch profiles');
-    } finally {
-      setLoading(false);
+  // Handler to close the Snackbar
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
     }
+    setSnackbar({ ...snackbar, open: false });
   };
 
   // Function to fetch available roles from profiles
   const fetchAvailableRoles = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/user_admin/view_profiles');
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_profiles`);
       if (Array.isArray(response.data)) {
         const roles = response.data.map(profile => profile.role);
         setAvailableRoles(roles);
@@ -80,24 +85,69 @@ const UserProfiles = () => {
       }
     } catch (err) {
       console.error(err);
-      // Handle error silently or set a default list
+      // Optionally set a default list or notify the user
+      setAvailableRoles(['admin', 'user']); // Example default roles
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch available roles. Using default roles.',
+        severity: 'warning',
+      });
     }
   };
 
-  // Fetch profiles on component mount
-  useEffect(() => {
-    fetchProfiles();
-    fetchAvailableRoles();
-  }, []);
+  // Function to fetch profiles based on filters
+  const fetchProfiles = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (filters.role) params.role = filters.role;
 
-  // Handle input changes for search
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_profiles`, { params });
+      if (filters.role) {
+        if (response.data) {
+          setProfiles([response.data]); // Single profile
+        } else {
+          setProfiles([]); // No profile found
+        }
+      } else {
+        // Assume response.data is an array when no filter is applied
+        setProfiles(Array.isArray(response.data) ? response.data : [response.data]);
+      }
+    } catch (err) {
+      console.error(err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch profiles.',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Handle search
-  const handleSearch = () => {
-    fetchProfiles(searchQuery);
+  // Fetch profiles and available roles on component mount
+  useEffect(() => {
+    fetchAvailableRoles();
+    fetchProfiles();
+    // eslint-disable-next-line
+  }, []);
+
+  // Handle input changes for filters
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
+  // Apply filters
+  const handleApplyFilters = () => {
+    fetchProfiles();
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setFilters({
+      role: '',
+    });
+    fetchProfiles();
   };
 
   // Open create profile dialog
@@ -112,35 +162,70 @@ const UserProfiles = () => {
       role: '',
       rights: [],
     });
-    setError('');
-    setSuccess('');
   };
 
   // Handle creating a new profile
   const handleCreateProfile = async () => {
-    setError('');
-    setSuccess('');
-    try {
-      // Basic validation
-      if (!newProfile.role || newProfile.rights.length === 0) {
-        setError('All fields are required');
-        return;
-      }
+    // Basic validation
+    if (!newProfile.role.trim()) {
+      setSnackbar({
+        open: true,
+        message: 'Role is required.',
+        severity: 'error',
+      });
+      return;
+    }
+    if (newProfile.rights.length === 0) {
+      setSnackbar({
+        open: true,
+        message: 'At least one right is required.',
+        severity: 'error',
+      });
+      return;
+    }
 
+    setLoading(true);
+    try {
       const profileData = {
-        role: newProfile.role,
+        role: newProfile.role.trim(),
         rights: newProfile.rights,
         suspended: false, // Default to active
       };
 
-      await axios.post('http://localhost:5000/api/user_admin/create_profile', profileData);
-      setSuccess('Profile created successfully');
-      fetchProfiles(); // Refresh the profile list
-      fetchAvailableRoles(); // Refresh roles
-      handleCloseCreate();
+      const response = await axios.post(`${config.API_BASE_URL}/user_admin/create_profile`, profileData);
+
+      if (response.status === 200 || response.status === 201) {
+        setSnackbar({
+          open: true,
+          message: 'Profile created successfully.',
+          severity: 'success',
+        });
+        fetchProfiles(); // Refresh the profile list
+        handleCloseCreate();
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to create profile.',
+          severity: 'error',
+        });
+      }
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to create profile');
+      if (err.response && err.response.status === 400) {
+        setSnackbar({
+          open: true,
+          message: 'Profile already exists or invalid data provided.',
+          severity: 'error',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to create profile.',
+          severity: 'error',
+        });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -149,44 +234,49 @@ const UserProfiles = () => {
       <Typography variant="h4" gutterBottom>
         User Profiles
       </Typography>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-        {/* Search Section */}
-        <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Role</InputLabel>
-          <Select
-            label="Role"
-            value={searchQuery}
-            onChange={handleSearchChange}
-            name="searchRole"
-          >
-            <MenuItem value="">
-              <em>All</em>
-            </MenuItem>
-            {availableRoles.map((role, index) => (
-              <MenuItem key={index} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <Button variant="contained" color="primary" onClick={handleSearch}>
-          Search
-        </Button>
-        <Button variant="outlined" color="secondary" onClick={() => { setSearchQuery(''); fetchProfiles(); }}>
-          Clear Search
-        </Button>
-        <Button variant="contained" color="success" onClick={handleOpenCreate}>
-          Create Profile
-        </Button>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+        {/* Filter Section */}
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Role</InputLabel>
+            <Select
+              label="Role"
+              name="role"
+              value={filters.role}
+              onChange={handleFilterChange}
+            >
+              <MenuItem value="">
+                <em>All</em>
+              </MenuItem>
+              {availableRoles.map((role, index) => (
+                <MenuItem key={index} value={role}>
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="contained" color="primary" onClick={handleApplyFilters}>
+            Apply Filters
+          </Button>
+          <Button variant="outlined" color="secondary" onClick={handleClearFilters}>
+            Clear Filters
+          </Button>
+        </Box>
+        <Box sx={{ alignSelf: 'flex-end' }}>
+          <Button variant="contained" color="success" onClick={handleOpenCreate}>
+            Create Profile
+          </Button>
+        </Box>
       </Box>
-      {/* Display error or success messages */}
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
       {/* Display loading indicator or profiles table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <UserProfilesTable profiles={profiles} refreshProfiles={fetchProfiles} />
+        <UserProfilesTable profiles={profiles} refreshProfiles={fetchProfiles} setSnackbar={setSnackbar} />
       )}
 
       {/* Create Profile Dialog */}
@@ -223,13 +313,25 @@ const UserProfiles = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseCreate}>Cancel</Button>
-          <Button onClick={handleCreateProfile} variant="contained" color="primary">
-            Create
+          <Button onClick={handleCreateProfile} variant="contained" color="primary" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for global success and error messages */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <MuiAlertComponent onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </MuiAlertComponent>
+      </Snackbar>
     </Box>
-  );
+  );  
 };
 
 export default UserProfiles;
