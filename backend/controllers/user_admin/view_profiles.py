@@ -18,7 +18,7 @@ class ViewProfilesController:
         role = request.args.get('role')
 
         # Fetch profiles based on the provided role
-        profiles = Profile.get_profile_by_role(role) if role else Profile.get_all_profiles()
+        profiles = Profile.get_profile_by_role(role) if role else Profile.get_profile_by_role() 
 
         return jsonify(profiles), 200
 

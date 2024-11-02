@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import UserAccountsTable from './UserAccountsTable';
+import config from '../../config';
 
 const UserAccounts = () => {
   const [users, setUsers] = useState([]);
@@ -42,7 +43,7 @@ const UserAccounts = () => {
   // Function to fetch available roles from profiles
   const fetchAvailableRoles = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/user_admin/view_profiles');
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_profiles`);
       if (Array.isArray(response.data)) {
         const roles = response.data.map(profile => profile.role);
         setAvailableRoles(roles);
@@ -51,7 +52,8 @@ const UserAccounts = () => {
       }
     } catch (err) {
       console.error(err);
-      // Handle error silently or set a default list
+      // Optionally set a default list or notify the user
+      setAvailableRoles(['admin', 'user']); // Example default roles
     }
   };
 
@@ -66,7 +68,7 @@ const UserAccounts = () => {
       if (filters.role) params.role = filters.role;
       if (filters.status) params.status = filters.status;
 
-      const response = await axios.get('http://localhost:5000/api/user_admin/view_users', { params });
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_users`, { params });
       setUsers(response.data);
     } catch (err) {
       console.error(err);
@@ -122,6 +124,7 @@ const UserAccounts = () => {
     setSuccess('');
   };
 
+  // Handle creating a new user
   const handleCreateUser = async () => {
     setError('');
     setSuccess('');
@@ -131,10 +134,10 @@ const UserAccounts = () => {
         setError('All fields are required');
         return;
       }
-  
-      const response = await axios.post('http://localhost:5000/api/user_admin/create_user', newUser);
-  
-      if (response.data === true) { // Check the boolean response
+
+      const response = await axios.post(`${config.API_BASE_URL}/user_admin/create_user`, newUser);
+
+      if (response.status === 200 && response.data === true) { // Check the boolean response
         setSuccess('User created successfully');
         fetchUsers(); // Refresh the user list
         handleCloseCreate();
@@ -143,7 +146,12 @@ const UserAccounts = () => {
       }
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to create user');
+      // Extract error message from response if available
+      if (err.response && err.response.status === 400) {
+        setError('User already exists or invalid data provided');
+      } else {
+        setError('Failed to create user');
+      }
     }
   };
 

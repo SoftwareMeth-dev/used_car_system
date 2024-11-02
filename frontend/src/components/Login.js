@@ -7,9 +7,11 @@ import {
   Typography,
   Box,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import config from '../config'; // Adjust the import path as necessary
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,7 +22,7 @@ const Login = () => {
   });
 
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false); // Optional: To handle loading state
+  const [loading, setLoading] = useState(false); // To handle loading state
 
   const handleChange = (e) => {
     setCredentials({
@@ -35,16 +37,17 @@ const Login = () => {
     setLoading(true); // Start loading
     console.log('Attempting to log in with:', credentials);
     try {
-      const response = await axios.post('http://localhost:5000/api/user_admin/login', credentials);
+      const response = await axios.post(`${config.API_BASE_URL}/login`, credentials);
       console.log('Login Response:', response.data);
 
-      // Check if response.data is truthy (i.e., profile data)
-      if (response.data && typeof response.data === 'object') {
-        const profile = response.data;
+      // Check if response.data contains 'user' and 'profile'
+      if (response.status === 200 && response.data.user && response.data.profile) {
+        const { user, profile } = response.data;
 
-        // Save profile data to localStorage
-        localStorage.setItem('user', JSON.stringify(profile));
-        console.log('User profile saved to localStorage');
+        // Save user and profile data to localStorage
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('profile', JSON.stringify(profile));
+        console.log('User and profile data saved to localStorage');
 
         // Redirect based on role
         switch (profile.role) {
@@ -69,22 +72,26 @@ const Login = () => {
             navigate('/');
         }
       } else {
-        // response.data is false
+        // response.data does not contain expected fields
         setError('Login failed: Invalid credentials or profile not found.');
         console.log('Login failed: Invalid credentials or profile not found.');
       }
     } catch (err) {
       console.error('Login Error:', err);
       if (err.response) {
-        if (err.response.status === 401) {
-          setError('Invalid credentials or account suspended.');
+        if (err.response.status === 400) {
+          setError('Bad Request: Missing username or password.');
+        } else if (err.response.status === 401) {
+          setError('Unauthorized: Invalid credentials or account suspended.');
+        } else if (err.response.status === 404) {
+          setError('Not Found: User does not exist.');
         } else if (err.response.status === 500) {
-          setError('Internal server error. Please try again later.');
+          setError('Internal Server Error: Please try again later.');
         } else {
-          setError(err.response.data || 'Login failed.');
+          setError('Login failed: ' + (err.response.data.error || 'Unknown error.'));
         }
       } else {
-        setError('Network error. Please check your connection.');
+        setError('Network error: Please check your connection.');
       }
     } finally {
       setLoading(false); // End loading
@@ -134,9 +141,9 @@ const Login = () => {
             variant="contained"
             color="primary"
             sx={{ mt: 3 }}
-            disabled={loading} // Optional: Disable button while loading
+            disabled={loading} // Disable button while loading
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? <CircularProgress size={24} /> : 'Login'}
           </Button>
         </Box>
       </Box>

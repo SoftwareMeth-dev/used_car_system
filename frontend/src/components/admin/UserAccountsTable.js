@@ -28,6 +28,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
 import RestoreIcon from '@mui/icons-material/Restore'; // Icon for Re-enable
 import axios from 'axios';
+import config from '../../config';
 
 const UserAccountsTable = ({ users, refreshUsers }) => {
   const [editUser, setEditUser] = useState(null);
@@ -42,7 +43,7 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
   // Function to fetch available roles from profiles
   const fetchAvailableRoles = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/user_admin/view_profiles');
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_profiles`);
       if (Array.isArray(response.data)) {
         const roles = response.data.map(profile => profile.role);
         setAvailableRoles(roles);
@@ -51,7 +52,8 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
       }
     } catch (err) {
       console.error(err);
-      // Handle error silently or set a default list
+      // Optionally set a default list or notify the user
+      setAvailableRoles(['admin', 'user']); // Example default roles
     }
   };
 
@@ -89,13 +91,18 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
         return;
       }
 
-      await axios.put(`http://localhost:5000/api/user_admin/update_user/${editUser.username}`, updatedUser);
+      await axios.put(`${config.API_BASE_URL}/user_admin/update_user/${editUser.username}`, updatedUser);
+
       setSuccess('User updated successfully');
       refreshUsers();
       handleCloseEdit();
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to update user');
+      if (err.response && err.response.status === 404) {
+        setError('User not found');
+      } else {
+        setError('Failed to update user');
+      }
     } finally {
       setLoading(false);
     }
@@ -121,13 +128,18 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
     setSuccess('');
     setLoading(true);
     try {
-      await axios.patch(`http://localhost:5000/api/user_admin/suspend_user/${suspendUser.username}`);
+      await axios.patch(`${config.API_BASE_URL}/user_admin/suspend_user/${suspendUser.username}`);
+
       setSuccess('User suspended successfully');
       refreshUsers();
       handleCloseSuspend();
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to suspend user');
+      if (err.response && err.response.status === 404) {
+        setError('User not found');
+      } else {
+        setError('Failed to suspend user');
+      }
     } finally {
       setLoading(false);
     }
@@ -153,13 +165,18 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
     setSuccess('');
     setLoading(true);
     try {
-      await axios.patch(`http://localhost:5000/api/user_admin/reenable_user/${reenableUser.username}`);
+      await axios.patch(`${config.API_BASE_URL}/user_admin/reenable_user/${reenableUser.username}`);
+
       setSuccess('User re-enabled successfully');
       refreshUsers();
       handleCloseReenable();
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to re-enable user');
+      if (err.response && err.response.status === 404) {
+        setError('User not found');
+      } else {
+        setError('Failed to re-enable user');
+      }
     } finally {
       setLoading(false);
     }
@@ -188,9 +205,13 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
             users.map((user, index) => (
               user ? ( // Ensure user is not null
                 <TableRow key={index}>
-                  <TableCell>{user.username}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</TableCell>
+                  <TableCell>{user.username || 'N/A'}</TableCell>
+                  <TableCell>{user.email || 'N/A'}</TableCell>
+                  <TableCell>
+                    {user.role
+                      ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                      : 'No Role'}
+                  </TableCell>
                   <TableCell>{user.suspended ? 'Suspended' : 'Active'}</TableCell>
                   <TableCell align="right">
                     {/* Edit Icon */}
@@ -254,7 +275,9 @@ const UserAccountsTable = ({ users, refreshUsers }) => {
                 <em>None</em>
               </MenuItem>
               {availableRoles.map((role, idx) => (
-                <MenuItem key={idx} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</MenuItem>
+                <MenuItem key={idx} value={role}>
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>

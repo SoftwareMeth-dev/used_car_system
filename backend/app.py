@@ -1,5 +1,5 @@
 # backend/app.py
-from flask import Flask
+from flask import Flask, Blueprint, jsonify
 from flask_cors import CORS
 
 # Import all Blueprints
