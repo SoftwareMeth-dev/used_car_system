@@ -10,7 +10,7 @@ function BuyerDashboard() {
   let user = {};
   if (userData) {
     try {
-      user = JSON.parse(userData).profile;
+      user = JSON.parse(userData).role;
     } catch (error) {
       console.error('Error parsing user data:', error);
     }

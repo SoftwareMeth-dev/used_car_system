@@ -43,7 +43,7 @@ const Login = () => {
       // Check if response.data contains 'user' and 'profile'
       if (response.status === 200 && response.data.user && response.data.profile) {
         const { user, profile } = response.data;
-
+        console.log(response.data)
         // Save user and profile data to localStorage
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('profile', JSON.stringify(profile));
