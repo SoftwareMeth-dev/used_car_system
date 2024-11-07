@@ -6,8 +6,7 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-// Add interceptors if needed (e.g., for adding auth tokens)
-
+// User and Profile Management Functions (User Admin)
 export const login = (credentials) => api.post('/user_admin/login', credentials);
 
 export const createUser = (userData) => api.post('/user_admin/create_user', userData);
@@ -26,4 +25,13 @@ export const updateProfile = (role, updateData) => api.put(`/user_admin/update_p
 
 export const suspendProfile = (role) => api.patch(`/user_admin/suspend_profile/${role}`);
 
-// Export other API functions as needed
+// Buyer Functions (Mapped to each file in controllers/buyer)
+export const viewListings = () => api.get('/buyer/view_listings');
+
+export const searchListings = (query) => api.get('/buyer/search_cars', { params: { query } });
+
+export const saveToShortlist = (userId, listingId) => api.post('/buyer/save_listing', { user_id: userId, listing_id: listingId });
+
+export const searchShortlist = (userId, query) => api.get('/buyer/search_shortlist', { params: { user_id: userId, query } });
+
+export const getShortlist = (userId) => api.get('/buyer/view_shortlist', { params: { user_id: userId } });
