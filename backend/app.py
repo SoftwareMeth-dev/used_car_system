@@ -16,13 +16,11 @@ from controllers.user_admin.update_profile import update_profile_bp
 from controllers.user_admin.suspend_profile import suspend_profile_bp
 from controllers.user_admin.reenable_profile import reenable_profile_bp
 from controllers.user_admin.search_profiles import search_profiles_bp
-from controllers.used_car_agent.create_listing import create_listing_bp
-from controllers.used_car_agent.view_listings import view_listings_bp
+from controllers.used_car_agent.create_listing import create_listing_bp 
 from controllers.used_car_agent.update_listing import update_listing_bp
 from controllers.used_car_agent.delete_listing import delete_listing_bp
 from controllers.used_car_agent.search_listings import search_listings_bp
-from controllers.buyer.search_cars import search_cars_bp
-from controllers.buyer.view_listings import view_listings_bp
+from controllers.buyer.search_cars import search_cars_bp 
 from controllers.buyer.save_listing import save_listing_bp
 from controllers.buyer.search_shortlist import search_shortlist_bp
 from controllers.buyer.view_shortlist import view_shortlist_bp
@@ -31,7 +29,8 @@ from controllers.seller.track_shortlist import track_shortlist_bp
 from controllers.seller.get_metrics import get_metrics_bp
 from controllers.review.rate_review_agent import rate_review_agent_bp  # New Controller
 from controllers.review.view_reviews import view_reviews_bp 
-from controllers.buyer.loan_calculator import loan_calculator_bp
+from controllers.buyer.loan_calculator import loan_calculator_bp 
+from utils.listings import listings_bp
 
 from utils.db import init_db
 from dotenv import load_dotenv
@@ -62,7 +61,7 @@ app.register_blueprint(suspend_profile_bp)
 app.register_blueprint(reenable_profile_bp)
 app.register_blueprint(search_profiles_bp)
 app.register_blueprint(create_listing_bp)
-app.register_blueprint(view_listings_bp)
+app.register_blueprint(listings_bp)
 app.register_blueprint(update_listing_bp)
 app.register_blueprint(delete_listing_bp)
 app.register_blueprint(search_listings_bp)
