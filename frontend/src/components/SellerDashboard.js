@@ -1,20 +1,29 @@
 // src/components/SellerDashboard.js
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Container, Box } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  CssBaseline,
+  Box,
+  Button,
+} from '@mui/material';
+import PeopleIcon from '@mui/icons-material/People';
+import AccountBoxIcon from '@mui/icons-material/AccountBox';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { useNavigate, Routes, Route } from 'react-router-dom';
+import UserAccounts from './admin/UserAccounts';
+import UserProfiles from './admin/UserProfiles';
 
-function SellerDashboard() {
+const drawerWidth = 240;
+
+const SellerDashboard = () => {
   const navigate = useNavigate();
-  const userData = localStorage.getItem('user');
-
-  let user = {};
-  if (userData) {
-    try {
-      user = JSON.parse(userData).profile;
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-    }
-  }
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -23,28 +32,64 @@ function SellerDashboard() {
   };
 
   return (
-    <div>
-      <AppBar position="static">
+    <Box sx={{ display: 'flex' }}>
+      <CssBaseline />
+      <AppBar
+        position="fixed"
+        sx={{
+          width: `calc(100% - ${drawerWidth}px)`,
+          ml: `${drawerWidth}px`,
+        }}
+      >
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Seller Dashboard
           </Typography>
-          <Typography variant="body1" sx={{ mr: 2 }}>
-            {user.username}
-          </Typography>
-          <Button color="inherit" onClick={handleLogout}>Logout</Button>
+          <Button color="inherit" onClick={handleLogout} startIcon={<LogoutIcon />}>
+            Logout
+          </Button>
         </Toolbar>
       </AppBar>
-      <Container>
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h4">Welcome, {user.username}!</Typography>
-          <Typography variant="body1" sx={{ mt: 2 }}>
-            This is the Seller Dashboard. More features coming soon.
-          </Typography>
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+        }}
+      >
+        <Toolbar />
+        <Box sx={{ overflow: 'auto' }}>
+          <List>
+            <ListItem button onClick={() => navigate('user-accounts')}>
+              <ListItemIcon>
+                <PeopleIcon />
+              </ListItemIcon>
+              <ListItemText primary="User Accounts" />
+            </ListItem>
+            <ListItem button onClick={() => navigate('user-profiles')}>
+              <ListItemIcon>
+                <AccountBoxIcon />
+              </ListItemIcon>
+              <ListItemText primary="User Profiles" />
+            </ListItem>
+            {/* Add other navigation items as needed */}
+          </List>
         </Box>
-      </Container>
-    </div>
+      </Drawer>
+      <Box
+        component="main"
+        sx={{ flexGrow: 1, bgcolor: 'background.default', p: 3, mt: 8 }}
+      >
+        <Routes>
+          <Route path="user-accounts" element={<UserAccounts />} />
+          <Route path="user-profiles" element={<UserProfiles />} />
+          {/* Define other nested routes here */}
+          <Route path="*" element={<Typography>Welcome to Seller Dashboard</Typography>} />
+        </Routes>
+      </Box>
+    </Box>
   );
-}
+};
 
 export default SellerDashboard;
