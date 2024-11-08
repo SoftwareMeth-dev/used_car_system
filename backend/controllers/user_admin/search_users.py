@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/search_users_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.user import User
 
@@ -13,14 +14,12 @@ class SearchUsersController:
 
     def search_users(self):
         """
-        Search User Accounts by a general query that matches username or email.
+        Endpoint to search user accounts based on a query matching username or email.
+        Delegates processing to UserModel.
         """
         query = request.args.get('query')
-        if not query:
-            return jsonify([]), 400
-
-        users = User.search_users(query)
-        return jsonify(users), 200
+        response, status_code = UserModel.search_users(query)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 search_users_controller = SearchUsersController()

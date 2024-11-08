@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/create_profile_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.profile import Profile
 
@@ -11,22 +12,14 @@ class CreateProfileController:
     def register_routes(self):
         create_profile_bp.add_url_rule('/create_profile', view_func=self.create_profile, methods=['POST'])
 
-    def create_profile(self): 
-        data = request.json
-        # Basic validation
-        required_fields = ["role", "rights"]
-        if not all(field in data for field in required_fields):
-            return jsonify(False), 400
+    def create_profile(self):
+        """
+        Endpoint to create a new user profile.
+        Delegates processing to ProfileModel.
+        """
+        data = request.get_json()
+        response, status_code = ProfileModel.create_profile(data)
+        return jsonify(response), status_code
 
-        # Check if profile already exists
-        existing_profile = Profile.get_profile_by_role(data.get('role'))
-        if existing_profile:
-            print(data.get('role'))
-            return jsonify(False), 400
-
-        # Create profile
-        success = Profile.create_profile(data)
-        return jsonify(success), 200 if success else 500
-
-# Instantiate the controller
+# Instantiate the controller to register routes
 create_profile_controller = CreateProfileController()

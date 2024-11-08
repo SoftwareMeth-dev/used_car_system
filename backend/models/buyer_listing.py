@@ -1,10 +1,10 @@
 # backend/models/buyer_listing.py
+
 from utils.db import db
 from bson import ObjectId
 from bson.errors import InvalidId
 
 buyer_listing_collection = db['buyer_shortlists']
-used_car_collection = db['used_car_listings']
 
 def serialize_listing(listing):
     if not listing:
@@ -19,44 +19,85 @@ def serialize_listings(listings):
 
 class BuyerListing:
     @staticmethod
-    def save_listing(user_id, listing_id):
+    def save_listing(data):
         """
-        Saves a listing to the buyer's shortlist by converting listing_id to ObjectId.
-        Returns True if the operation is successful, otherwise False.
+        Saves a listing to the buyer's shortlist.
+        Expects data to contain 'user_id' and 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
         """
+        user_id = data.get('user_id')
+        listing_id = data.get('listing_id')
+
+        if not user_id or not listing_id:
+            return {"error": "user_id and listing_id are required."}, 400
+
         try:
             listing_oid = ObjectId(listing_id)
         except InvalidId:
-            print(f"Invalid listing_id: {listing_id}")
-            return False  # Indicate failure due to invalid listing_id
-        
-        result = buyer_listing_collection.update_one(
-            {"user_id": user_id},
-            {"$addToSet": {"shortlist": listing_oid}},
-            upsert=True
-        )
-        return result.modified_count > 0 or result.upserted_id is not None
+            return {"error": "Invalid listing_id."}, 400
+
+        try:
+            result = buyer_listing_collection.update_one(
+                {"user_id": user_id},
+                {"$addToSet": {"shortlist": listing_oid}},
+                upsert=True
+            )
+            if result.modified_count > 0 or result.upserted_id is not None:
+                return {"message": "Listing saved successfully."}, 200
+            else:
+                return {"message": "Listing already in shortlist."}, 200
+        except Exception as e:
+            print(f"Error in BuyerListing.save_listing: {e}")
+            return {"error": "Failed to save listing."}, 500
 
     @staticmethod
     def get_shortlist(user_id):
-        user = buyer_listing_collection.find_one({"user_id": user_id})
-        if user:
-            # Convert ObjectIds to strings for consistency in responses
-            return [str(oid) for oid in user.get('shortlist', [])]
-        return []
+        """
+        Retrieves the user's shortlist.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            user = buyer_listing_collection.find_one({"user_id": user_id})
+            if user:
+                shortlist = [str(oid) for oid in user.get('shortlist', [])]
+                return {"shortlist": shortlist}, 200
+            return {"shortlist": []}, 200
+        except Exception as e:
+            print(f"Error in BuyerListing.get_shortlist: {e}")
+            return {"error": "Failed to retrieve shortlist."}, 500
 
     @staticmethod
-    def search_shortlist(user_id, query=None, listing_id=None):
+    def search_shortlist(data):
         """
-        Searches the buyer's shortlist based on the query or listing_id.
-        Converts listing_ids to ObjectId before querying.
-        Returns a list of listing dictionaries.
+        Searches the buyer's shortlist based on query or listing_id.
+        Expects data to contain 'user_id' and either 'query' or 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
+        """
+        user_id = data.get('user_id')
+        query = data.get('query')
+        listing_id = data.get('listing_id')
+
+        if not user_id:
+            return {"error": "user_id is required."}, 400
+
+        if not query and not listing_id:
+            return {"error": "Either query or listing_id must be provided."}, 400
+
+        try:
+            return BuyerListing._search_shortlist_logic(user_id, query, listing_id)
+        except Exception as e:
+            print(f"Error in BuyerListing.search_shortlist: {e}")
+            return {"error": "Failed to search shortlist."}, 500
+
+    @staticmethod
+    def _search_shortlist_logic(user_id, query=None, listing_id=None):
+        """
+        Internal method to handle the search logic.
         """
         shortlist_doc = buyer_listing_collection.find_one({"user_id": user_id})
         if not shortlist_doc:
-            print(f"No shortlist found for user_id: {user_id}")
-            return []
-        
+            return {"listings": []}, 200
+
         shortlist_ids = shortlist_doc.get('shortlist', [])
         # Convert all listing_ids to ObjectIds, skip invalid ones
         valid_ids = []
@@ -69,30 +110,29 @@ class BuyerListing:
                 except InvalidId:
                     print(f"Invalid listing_id in shortlist: {lid}")
                     continue  # Skip invalid IDs
-        
+
         if not valid_ids:
-            print("No valid listing_ids found in shortlist.")
-            return []
-        
+            return {"listings": []}, 200
+
         # Construct the query
         mongo_query = {
             "_id": {"$in": valid_ids}
         }
-        
+
         if listing_id:
             try:
                 listing_oid = ObjectId(listing_id)
                 mongo_query["_id"] = listing_oid
             except InvalidId:
-                print(f"Invalid listing_id parameter: {listing_id}")
-                return []
+                return {"error": "Invalid listing_id parameter."}, 400
         elif query:
-            # Adjust the query to search within the shortlist
             mongo_query["$or"] = [
                 {"make": {"$regex": query, "$options": "i"}},
                 {"model": {"$regex": query, "$options": "i"}},
                 {"year": {"$regex": query, "$options": "i"}}
             ]
-        
-        # Perform the search
-        return serialize_listings(used_car_collection.find(mongo_query))
+
+        # Perform the search using UsedCarListing model
+        from models.used_car_listing import UsedCarListing
+        listings = UsedCarListing.search_listings_with_query(mongo_query)
+        return {"listings": listings}, 200

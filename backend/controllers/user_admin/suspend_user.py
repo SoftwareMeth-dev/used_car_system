@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/suspend_user_controller.py
+
 from flask import Blueprint, jsonify
 from models.user import User
 
@@ -12,10 +13,12 @@ class SuspendUserController:
         suspend_user_bp.add_url_rule('/suspend_user/<username>', view_func=self.suspend_user, methods=['PATCH'])
 
     def suspend_user(self, username):
-        success = User.suspend_user(username)
-        if not success:
-            return jsonify(False), 404
-        return jsonify(success), 200
+        """
+        Endpoint to suspend a user account.
+        Delegates processing to UserModel.
+        """
+        response, status_code = UserModel.suspend_user(username)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 suspend_user_controller = SuspendUserController()

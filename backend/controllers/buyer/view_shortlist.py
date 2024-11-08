@@ -1,4 +1,5 @@
 # backend/controllers/buyer/view_shortlist_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.buyer_listing import BuyerListing
 
@@ -13,10 +14,8 @@ class ViewShortlistController:
 
     def view_shortlist(self):
         user_id = request.args.get('user_id')
-        if not user_id:
-            return jsonify(False), 400  # Bad Request
-        shortlist = BuyerListing.get_shortlist(user_id)
-        return jsonify(shortlist), 200
+        response, status_code = BuyerListing.get_shortlist(user_id)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 view_shortlist_controller = ViewShortlistController()

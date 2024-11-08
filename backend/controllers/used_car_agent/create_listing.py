@@ -1,4 +1,5 @@
 # backend/controllers/used_car_agent/create_listing_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
 
@@ -12,9 +13,13 @@ class CreateListingController:
         create_listing_bp.add_url_rule('/create_listing', view_func=self.create_listing, methods=['POST'])
 
     def create_listing(self):
+        """
+        Endpoint to create a new used car listing.
+        Delegates processing to UsedCarListingModel.
+        """
         data = request.get_json()
-        success = UsedCarListing.create_listing(data)
-        return jsonify(success), 201 if success else 500
+        response, status_code = UsedCarListingModel.create_listing(data)
+        return jsonify(response), status_code
 
-# Instantiate the controller
+# Instantiate the controller to register routes
 create_listing_controller = CreateListingController()

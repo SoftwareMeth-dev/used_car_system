@@ -1389,3 +1389,1433 @@ class ViewUsersController:
 # Instantiate the controller
 view_users_controller = ViewUsersController()
 
+
+
+# Contents of: .\auth.py
+# backend/controllers/auth_controller.py
+from flask import Blueprint, request, jsonify
+from models.user import User
+from models.profile import Profile
+import traceback
+
+auth_bp = Blueprint('auth', __name__, url_prefix='/api')
+
+class AuthController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        auth_bp.add_url_rule('/login', view_func=self.login, methods=['POST'])
+        auth_bp.add_url_rule('/logout', view_func=self.logout, methods=['POST'])
+        
+    def login(self):
+        try:
+            data = request.get_json()
+            print(f"Received login data: {data}")  # Debugging
+
+            username = data.get('username')
+            password = data.get('password')
+
+            if not username or not password:
+                print("Username or password missing.")  # Debugging
+                return jsonify(False), 400  # Bad Request
+
+            user = User.get_user_by_username(username)
+            print(f"Fetched User: {user}")  # Debugging
+
+            if user:
+                print(f"User found: {user.get('username')}, Suspended: {user.get('suspended')}")  # Debugging
+                if user.get('password') == password:
+                    print("Password matches.")  # Debugging
+                else:
+                    print("Password does not match.")  # Debugging
+            else:
+                print("User not found.")  # Debugging
+
+            if user and user.get('password') == password and not user.get('suspended'):
+                profile = Profile.get_profile_by_role(user.get('role'))
+                print(f"Fetched Profile: {profile}")  # Debugging
+
+                if profile:
+                    login_data = {
+                        "user": user,
+                        "profile": profile
+                    }
+                    print("Login successful.")  # Debugging
+                    return jsonify(login_data), 200
+                else:
+                    print("Profile data missing.")  # Debugging
+                    return jsonify(False), 500  # Internal Server Error
+
+            print("Invalid credentials or account suspended.")  # Debugging
+            return jsonify(False), 401  # Unauthorized
+
+        except Exception as e:
+            print("Error occurred during login:", e)
+            traceback.print_exc()
+            return jsonify(False), 500  # Internal Server Error
+
+
+    def logout(self):
+        # Placeholder for logout functionality
+        return jsonify(True), 200  # Always succeeds
+
+# Instantiate the controller to register routes
+auth_controller = AuthController()
+
+
+
+# Contents of: .\gettxt.py
+import os
+import shutil
+
+def collect_python_files_to_text(folder_path=".", output_file="all_python_files.txt"):
+    with open(output_file, 'a') as txt_file:  # Open in append mode
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                if file.endswith('.py'):
+                    py_file_path = os.path.join(root, file)
+                    try:
+                        with open(py_file_path, 'r') as py_file:
+                            txt_file.write(f"\n\n# Contents of: {py_file_path}\n")
+                            shutil.copyfileobj(py_file, txt_file)
+                            txt_file.write("\n")  # Add newline after each file
+                        print(f"Appended {py_file_path} to {output_file}")
+                    except Exception as e:
+                        print(f"Could not read {py_file_path}: {e}")
+
+# Run the function from the current directory
+collect_python_files_to_text()
+
+
+
+# Contents of: .\archive\app.py
+from flask import Flask
+from flask_cors import CORS
+from controllers.user_admin import bp as user_admin_bp
+from controllers.used_car_agent import bp as used_car_agent_bp
+from controllers.buyer import bp as buyer_bp
+from controllers.seller import bp as seller_bp
+from utils.db import init_db
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+app = Flask(__name__)
+
+# Initialize CORS
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}) 
+
+# Initialize Database
+init_db()
+
+# Register Blueprints
+app.register_blueprint(user_admin_bp)
+app.register_blueprint(used_car_agent_bp)
+app.register_blueprint(buyer_bp)
+app.register_blueprint(seller_bp)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+# Contents of: .\archive\base_controller.py
+# backend/controllers/user_controller.py
+from flask import Blueprint, request, jsonify
+from models.user import User
+from models.profile import Profile
+import traceback
+
+class UserController:
+    def __init__(self, name, import_name, url_prefix):
+        self.bp = Blueprint(name, import_name, url_prefix=url_prefix)
+        self.register_common_routes()
+
+    def register_common_routes(self):
+        self.bp.route('/login', methods=['POST'])(self.login)
+        self.bp.route('/logout', methods=['POST'])(self.logout)
+
+    def login(self):
+        try:
+            data = request.get_json()
+            username = data.get('username')
+            password = data.get('password')
+
+            if not username or not password:
+                return jsonify(False), 400  # Bad Request if missing credentials
+
+            user = User.get_user_by_username(username)
+            if user and user.get('password') == password and not user.get('suspended'):
+                profile = Profile.get_profile_by_role(user.get('role'))
+
+                if profile:
+                    # Combine user data and profile data
+                    login_data = {
+                        "user": user,
+                        "profile": profile
+                    }
+                    return jsonify(login_data), 200
+                else:
+                    # Profile data is missing
+                    return jsonify(False), 200  # Alternatively, use a different status code like 500
+
+            # Invalid credentials or account suspended
+            return jsonify(False), 401  # Unauthorized
+
+        except Exception as e:
+            print("Error occurred during login:", e)
+            traceback.print_exc()
+            return jsonify(False), 500  # Internal Server Error
+
+    def logout(self):
+        # Since there's no authentication mechanism, this is a placeholder
+        return jsonify(True), 200  # Always succeeds
+
+
+
+# Contents of: .\archive\buyer.py
+# backend/controllers/buyer.py
+from flask import request, jsonify
+from models.used_car_listing import UsedCarListing
+from models.buyer_listing import BuyerListing
+from models.user import User
+from models.profile import Profile
+from models.review import Review
+from controllers.base_controller import UserController
+from datetime import datetime
+
+class BuyerController(UserController):
+    def __init__(self):
+        super().__init__('buyer', __name__, '/api/buyer')
+        self.register_buyer_routes()
+
+    def register_buyer_routes(self):
+        self.bp.route('/search_cars', methods=['GET'])(self.search_cars)
+        self.bp.route('/view_listings', methods=['GET'])(self.view_listings)
+        self.bp.route('/save_listing', methods=['POST'])(self.save_listing)
+        self.bp.route('/search_shortlist', methods=['GET'])(self.search_shortlist)
+        self.bp.route('/view_shortlist', methods=['GET'])(self.view_shortlist)
+        self.bp.route('/rate_review_agent', methods=['POST'])(self.rate_review_agent)
+
+    # Buyer-specific methods
+    def search_cars(self):
+        query = request.args.get('query')
+        if not query:
+            return jsonify([]), 400  # Bad Request if query is missing
+        listings = UsedCarListing.search_listings(query)
+        return jsonify(listings), 200
+
+    def view_listings(self):
+        listings = UsedCarListing.get_all_listings()
+        return jsonify(listings), 200
+
+    def save_listing(self):
+        data = request.get_json()
+        user_id = data.get('user_id')
+        listing_id = data.get('listing_id')
+
+        if not user_id or not listing_id:
+            return jsonify(False), 400  # Bad Request
+
+        success = BuyerListing.save_listing(user_id, listing_id)
+        return jsonify(success), 200 if success else 400
+
+    def search_shortlist(self):
+        user_id = request.args.get('user_id')
+        query = request.args.get('query')
+        listing_id = request.args.get('listing_id')
+
+        if not user_id:
+            return jsonify(False), 400  # Bad Request
+
+        if not query and not listing_id:
+            return jsonify(False), 400  # Bad Request
+
+        listings = BuyerListing.search_shortlist(user_id, query=query, listing_id=listing_id)
+        return jsonify(listings), 200
+
+    def view_shortlist(self):
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify(False), 400  # Bad Request
+        shortlist = BuyerListing.get_shortlist(user_id)
+        return jsonify(shortlist), 200
+
+    def rate_review_agent(self):
+        data = request.get_json()
+        success, status = Review.create_review_entry({
+            "agent_id": data.get('agent_id'),
+            "reviewer_id": data.get('buyer_id'),
+            "reviewer_role": "buyer",
+            "rating": data.get('rating'),
+            "review": data.get('review', '')
+        })
+        return jsonify(success), status
+
+
+# Instantiate the controller to create the blueprint
+buyer_controller = BuyerController()
+bp = buyer_controller.bp
+
+
+
+# Contents of: .\archive\seller.py
+# backend/controllers/seller.py
+from flask import Blueprint, request, jsonify
+from models.user import User
+from models.profile import Profile
+from models.review import Review
+from models.seller_metrics import SellerMetrics
+from controllers.base_controller import UserController
+from datetime import datetime
+
+class SellerController(UserController):
+    def __init__(self):
+        super().__init__('seller', __name__, '/api/seller')
+        self.register_seller_routes()
+
+    def register_seller_routes(self):
+        self.bp.route('/track_view', methods=['POST'])(self.track_view)
+        self.bp.route('/track_shortlist', methods=['POST'])(self.track_shortlist)
+        self.bp.route('/get_metrics/<listing_id>', methods=['GET'])(self.get_metrics)
+        self.bp.route('/rate_review_agent', methods=['POST'])(self.rate_review_agent)
+
+    # Seller-specific methods
+    def track_view(self):
+        data = request.get_json()
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            return jsonify(False), 400  # Bad Request
+        success = SellerMetrics.track_view(listing_id)
+        return jsonify(success), 200 if success else 500
+
+    def track_shortlist(self):
+        data = request.get_json()
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            return jsonify(False), 400  # Bad Request
+        success = SellerMetrics.track_shortlist(listing_id)
+        return jsonify(success), 200 if success else 500
+
+    def get_metrics(self, listing_id):
+        metrics = SellerMetrics.get_metrics(listing_id)
+        return jsonify(metrics), 200 if metrics else 404
+
+    def rate_review_agent(self):
+        data = request.get_json() 
+        success, status = Review.create_review_entry({
+            "agent_id": data.get('agent_id'),
+            "reviewer_id": data.get('seller_id'),
+            "reviewer_role": "seller",
+            "rating": data.get('rating'),
+            "review": data.get('review', '')
+        })
+        return jsonify(success), status
+
+ # Instantiate the controller to create the blueprint
+seller_controller = SellerController()
+bp = seller_controller.bp
+
+
+
+# Contents of: .\archive\used_car_agent.py
+# backend/controllers/used_car_agent.py
+from flask import request, jsonify
+from models.user import User
+from models.used_car_listing import UsedCarListing
+from models.review import Review
+from models.profile import Profile
+from models.seller_metrics import SellerMetrics
+from controllers.base_controller import UserController
+from datetime import datetime
+
+class UsedCarAgentController(UserController):
+    def __init__(self):
+        super().__init__('used_car_agent', __name__, '/api/used_car_agent')
+        self.register_agent_routes()
+
+    def register_agent_routes(self):
+        self.bp.route('/create_listing', methods=['POST'])(self.create_listing)
+        self.bp.route('/view_listings', methods=['GET'])(self.view_listings)
+        self.bp.route('/update_listing/<listing_id>', methods=['PUT'])(self.update_listing)
+        self.bp.route('/delete_listing/<listing_id>', methods=['DELETE'])(self.delete_listing)
+        self.bp.route('/search_listings', methods=['GET'])(self.search_listings) 
+        self.bp.route('/view_reviews/<agent_id>', methods=['GET'])(self.view_reviews) 
+
+    # Agent-specific methods
+    def create_listing(self):
+        data = request.get_json()
+        success = UsedCarListing.create_listing(data)
+        return jsonify(success), 201 if success else 500
+
+    def view_listings(self):
+        listings = UsedCarListing.get_all_listings()
+        return jsonify(listings), 200
+
+    def update_listing(self, listing_id):
+        data = request.get_json()
+        if not data:
+            return jsonify(False), 400  # Bad Request
+        success = UsedCarListing.update_listing(listing_id, data)
+        return jsonify(success), 200 if success else 404
+
+    def delete_listing(self, listing_id):
+        success = UsedCarListing.delete_listing(listing_id)
+        return jsonify(success), 200 if success else 404
+
+    def search_listings(self):
+        query = request.args.get('query')
+        if not query:
+            return jsonify([]), 400  # Bad Request
+        listings = UsedCarListing.search_listings(query)
+        return jsonify(listings), 200
+ 
+    def view_reviews(self, agent_id):
+        agent = User.get_user_by_id(agent_id)
+        if not agent or agent.get('role') != 'used_car_agent':
+            return jsonify({"error": "Agent not found."}), 404  # Not Found
+
+        reviews = Review.get_reviews_for_agent(agent_id)
+        average_rating = Review.get_average_rating(agent_id)
+        return jsonify({"reviews": reviews, "average_rating": average_rating}), 200
+
+    # def get_metrics(self, listing_id):
+    #     metrics = SellerMetrics.get_metrics(listing_id)
+    #     return jsonify(metrics), 200 if metrics else 404
+
+    # def track_view(self):
+    #     data = request.get_json()
+    #     listing_id = data.get('listing_id')
+    #     if not listing_id:
+    #         return jsonify(False), 400  # Bad Request
+    #     success = SellerMetrics.track_view(listing_id)
+    #     return jsonify(success), 200 if success else 500
+
+    # def track_shortlist(self):
+    #     data = request.get_json()
+    #     listing_id = data.get('listing_id')
+    #     if not listing_id:
+    #         return jsonify(False), 400  # Bad Request
+    #     success = SellerMetrics.track_shortlist(listing_id)
+    #     return jsonify(success), 200 if success else 500
+
+ # Instantiate the controller to create the blueprint
+used_car_agent_controller = UsedCarAgentController()
+bp = used_car_agent_controller.bp
+
+
+# Contents of: .\archive\user_admin.py
+# backend/controllers/user_admin.py
+from flask import Blueprint, request, jsonify
+from models.user import User
+from models.profile import Profile
+from controllers.base_controller import UserController
+
+bp = Blueprint('user_admin', __name__, url_prefix='/api/user_admin')
+
+class AdminController(UserController):
+    def __init__(self):
+        super().__init__('user_admin', __name__, '/api/user_admin')
+        self.register_admin_routes()
+
+    def register_admin_routes(self):
+        self.bp.route('/create_user', methods=['POST'])(self.create_user)
+        self.bp.route('/view_users', methods=['GET'])(self.view_users)
+        self.bp.route('/update_user/<username>', methods=['PUT'])(self.update_user)
+        self.bp.route('/suspend_user/<username>', methods=['PATCH'])(self.suspend_user)
+        self.bp.route('/reenable_user/<username>', methods=['PATCH'])(self.reenable_user)  # New route
+        self.bp.route('/search_users', methods=['GET'])(self.search_users)
+        self.bp.route('/create_profile', methods=['POST'])(self.create_profile)
+        self.bp.route('/view_profiles', methods=['GET'])(self.view_profiles)
+        self.bp.route('/update_profile/<role>', methods=['PUT'])(self.update_profile)
+        self.bp.route('/suspend_profile/<role>', methods=['PATCH'])(self.suspend_profile)
+        self.bp.route('/reenable_profile/<role>', methods=['PATCH'])(self.reenable_profile)  # New route
+        self.bp.route('/search_profiles', methods=['GET'])(self.search_profiles)
+
+    # Admin-specific methods
+    def create_user(self):
+        data = request.json
+        # Basic validation
+        required_fields = ["username", "password", "email", "role"]
+        if not all(field in data for field in required_fields):
+            return jsonify(False), 400
+
+        # Check if user already exists
+        if User.get_user_by_username(data.get('username')):
+            return jsonify(False), 400
+
+        # Create user and return result as a boolean
+        success = User.create_user(data)
+        return jsonify(success), 200
+
+    def view_users(self):
+        """
+        View User Accounts with optional filtering by username, email, role, and status.
+        """
+        username = request.args.get('username')
+        email = request.args.get('email')
+        role = request.args.get('role')
+        status = request.args.get('status')  # Expected values: 'active' or 'suspended'
+
+        # Fetch users based on the provided filters
+        users = User.filter_users(username=username, email=email, role=role, status=status)
+
+        return jsonify(users), 200
+
+    def update_user(self, username):
+        data = request.json
+        if not data:
+            return jsonify(False), 400
+
+        # Update user
+        success = User.update_user(username, data)
+        if not success:
+            return jsonify(False), 404
+
+        return jsonify(success), 200
+
+    def suspend_user(self, username):
+        success = User.suspend_user(username)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
+
+    def reenable_user(self, username):
+        """
+        Re-enable a suspended user account.
+        """
+        success = User.reenable_user(username)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
+
+    def search_users(self):
+        """
+        Search User Accounts by a general query that matches username or email.
+        """
+        query = request.args.get('query')
+        if not query:
+            return jsonify([]), 400
+
+        users = User.search_users(query)
+        return jsonify(users), 200
+
+    def create_profile(self):
+        data = request.json
+        # Basic validation
+        required_fields = ["role", "rights"]
+        if not all(field in data for field in required_fields):
+            return jsonify(False), 400
+
+        # Check if profile already exists
+        existing_profile = Profile.get_profile_by_role(data.get('role'))
+        if existing_profile:
+            return jsonify(False), 400
+
+        # Create profile
+        success = Profile.create_profile(data)
+        return jsonify(success), 200
+
+    def view_profiles(self):
+        """
+        View User Profiles with optional filtering by role.
+        """
+        role = request.args.get('role')
+
+        # Fetch profiles based on the provided role
+        profiles = Profile.get_profile_by_role(role)
+
+        return jsonify(profiles), 200
+
+    def update_profile(self, role):
+        data = request.json
+        if not data:
+            return jsonify(False), 400
+
+        # Update profile
+        success = Profile.update_profile(role, data)
+        if not success:
+            return jsonify(False), 404
+
+        return jsonify(success), 200
+
+    def suspend_profile(self, role):
+        """
+        Suspends a profile and all associated user accounts.
+        """
+        success = Profile.suspend_profile(role)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
+
+    def reenable_profile(self, role):
+        """
+        Re-enables a profile and all associated user accounts.
+        """
+        success = Profile.reenable_profile(role)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
+
+    def search_profiles(self):
+        """
+        Search User Profiles by a general query that matches role or rights.
+        """
+        query = request.args.get('query')
+        if not query:
+            return jsonify([]), 400
+
+        profiles = Profile.search_profiles(query)
+        return jsonify(profiles), 200
+
+# Instantiate the controller to create the blueprint
+admin_controller = AdminController()
+bp = admin_controller.bp
+
+
+
+# Contents of: .\buyer\loan_calculator.py
+# backend/controllers/buyer/loan_calculator_controller.py
+
+from flask import Blueprint, request, jsonify
+from utils.loan_calculator import LoanCalculator
+from models.used_car_listing import UsedCarListing
+
+loan_calculator_bp = Blueprint('loan_calculator', __name__, url_prefix='/api/buyer')
+
+class LoanCalculatorController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        loan_calculator_bp.add_url_rule('/loan_calculator', view_func=self.loan_calculator, methods=['POST'])
+
+    def loan_calculator(self):
+        """
+        Endpoint to calculate loan estimates based on provided parameters.
+        Expects JSON payload with:
+            - listing_id (str): The ID of the car listing.
+            - annual_interest_rate (float): The annual interest rate in percentage.
+            - loan_term_months (int): The loan term in months.
+            - down_payment (float, optional): The down payment amount.
+
+        Returns:
+            - JSON with monthly_payment, total_payment, and total_interest.
+        """
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No input data provided."}), 400
+
+            listing_id = data.get('listing_id')
+            annual_interest_rate = data.get('annual_interest_rate')
+            loan_term_months = data.get('loan_term_months')
+            down_payment = data.get('down_payment', 0)
+
+            # Validate required fields
+            required_fields = ['listing_id', 'annual_interest_rate', 'loan_term_months']
+            missing_fields = [field for field in required_fields if field not in data]
+            if missing_fields:
+                return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}."}), 400
+
+            # Type validation
+            try:
+                annual_interest_rate = float(annual_interest_rate)
+                loan_term_months = int(loan_term_months)
+                down_payment = float(down_payment)
+            except ValueError:
+                return jsonify({"error": "Invalid data types for one or more fields."}), 400
+
+            # Fetch listing by listing_id
+            listing = UsedCarListing.get_listing_by_id(listing_id)
+            if not listing:
+                return jsonify({"error": "Car listing not found."}), 404
+
+            principal = listing.get('price')
+            if principal is None:
+                return jsonify({"error": "Listing price not available."}), 500
+
+            # Instantiate the LoanCalculator class
+            loan_calculator = LoanCalculator(
+                principal=principal,
+                annual_interest_rate=annual_interest_rate,
+                loan_term_months=loan_term_months,
+                down_payment=down_payment
+            )
+
+            # Perform calculation
+            loan_details = loan_calculator.calculate()
+
+            return jsonify(loan_details), 200
+
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400  # Bad Request for validation errors
+        except Exception as e:
+            print(f"Error in loan_calculator: {e}")
+            return jsonify({"error": "An error occurred while processing the loan calculation."}), 500  # Internal Server Error
+
+# Instantiate the controller to register routes
+loan_calculator_controller = LoanCalculatorController()
+
+
+
+# Contents of: .\buyer\save_listing.py
+# backend/controllers/buyer/save_listing_controller.py
+from flask import Blueprint, request, jsonify
+from models.buyer_listing import BuyerListing
+
+save_listing_bp = Blueprint('save_listing', __name__, url_prefix='/api/buyer')
+
+class SaveListingController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        save_listing_bp.add_url_rule('/save_listing', view_func=self.save_listing, methods=['POST'])
+
+    def save_listing(self):
+        data = request.get_json()
+        user_id = data.get('user_id')
+        listing_id = data.get('listing_id')
+
+        if not user_id or not listing_id:
+            return jsonify(False), 400  # Bad Request
+
+        success = BuyerListing.save_listing(user_id, listing_id)
+        return jsonify(success), 200 if success else 400
+
+# Instantiate the controller
+save_listing_controller = SaveListingController()
+
+
+
+# Contents of: .\buyer\search_cars.py
+# backend/controllers/buyer/search_cars_controller.py
+from flask import Blueprint, request, jsonify
+from models.used_car_listing import UsedCarListing
+
+search_cars_bp = Blueprint('search_cars', __name__, url_prefix='/api/buyer')
+
+class SearchCarsController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        search_cars_bp.add_url_rule('/search_cars', view_func=self.search_cars, methods=['GET'])
+
+    def search_cars(self):
+        query = request.args.get('query')
+        if not query:
+            return jsonify([]), 400  # Bad Request if query is missing
+        listings = UsedCarListing.search_listings(query)
+        return jsonify(listings), 200
+
+# Instantiate the controller
+search_cars_controller = SearchCarsController()
+
+
+
+# Contents of: .\buyer\search_shortlist.py
+# backend/controllers/buyer/search_shortlist_controller.py
+from flask import Blueprint, request, jsonify
+from models.buyer_listing import BuyerListing
+
+search_shortlist_bp = Blueprint('search_shortlist', __name__, url_prefix='/api/buyer')
+
+class SearchShortlistController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        search_shortlist_bp.add_url_rule('/search_shortlist', view_func=self.search_shortlist, methods=['GET'])
+
+    def search_shortlist(self):
+        user_id = request.args.get('user_id')
+        query = request.args.get('query')
+        listing_id = request.args.get('listing_id')
+
+        if not user_id:
+            return jsonify(False), 400  # Bad Request
+
+        if not query and not listing_id:
+            return jsonify(False), 400  # Bad Request
+
+        listings = BuyerListing.search_shortlist(user_id, query=query, listing_id=listing_id)
+        return jsonify(listings), 200
+
+# Instantiate the controller
+search_shortlist_controller = SearchShortlistController()
+
+
+
+# Contents of: .\buyer\view_shortlist.py
+# backend/controllers/buyer/view_shortlist_controller.py
+from flask import Blueprint, request, jsonify
+from models.buyer_listing import BuyerListing
+
+view_shortlist_bp = Blueprint('view_shortlist', __name__, url_prefix='/api/buyer')
+
+class ViewShortlistController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        view_shortlist_bp.add_url_rule('/view_shortlist', view_func=self.view_shortlist, methods=['GET'])
+
+    def view_shortlist(self):
+        user_id = request.args.get('user_id')
+        if not user_id:
+            return jsonify(False), 400  # Bad Request
+        shortlist = BuyerListing.get_shortlist(user_id)
+        return jsonify(shortlist), 200
+
+# Instantiate the controller
+view_shortlist_controller = ViewShortlistController()
+
+
+
+# Contents of: .\review\rate_review_agent.py
+# backend/controllers/review/rate_review_agent_controller.py
+from flask import Blueprint, request, jsonify
+from models.review import Review
+from models.user import User
+
+rate_review_agent_bp = Blueprint('rate_review_agent', __name__, url_prefix='/api')
+
+class RateReviewAgentController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        # Dynamic route handling role from the URL
+        rate_review_agent_bp.add_url_rule(
+            '/<role>/rate_review_agent',
+            view_func=self.rate_review_agent,
+            methods=['POST']
+        )
+
+    def rate_review_agent(self, role):
+        """
+        Allows buyers and sellers to rate and review agents.
+        The role is dynamically read from the URL.
+        """
+        # Validate the role
+        if role not in ['buyer', 'seller']:
+            return jsonify({"error": "Invalid role specified."}), 400
+
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No input data provided."}), 400
+
+        # Define required fields based on role
+        required_fields = ["agent_id", f"{role}_id", "rating"]
+        if not all(field in data for field in required_fields):
+            missing = [field for field in required_fields if field not in data]
+            return jsonify({"error": f"Missing required fields: {', '.join(missing)}."}), 400
+
+        # Extract reviewer_id based on role
+        reviewer_id = data.get(f"{role}_id")
+        reviewer_role = role
+
+        # Validate agent existence
+        agent = User.get_user_by_id(data.get('agent_id'))
+        if not agent or agent.get('role') != 'used_car_agent':
+            return jsonify({"error": "Agent not found."}), 404
+
+        # Create the review entry
+        success, status = Review.create_review_entry({
+            "agent_id": data.get('agent_id'),
+            "reviewer_id": reviewer_id,
+            "reviewer_role": reviewer_role,
+            "rating": data.get('rating'),
+            "review": data.get('review', '')
+        })
+
+        if success:
+            return jsonify({"success": True}), status
+        else:
+            return jsonify({"success": False}), status
+
+# Instantiate the controller to register routes
+rate_review_agent_controller = RateReviewAgentController()
+
+
+
+# Contents of: .\review\view_reviews.py
+# backend/controllers/review/view_reviews_controller.py
+from flask import Blueprint, jsonify
+from models.review import Review
+from models.user import User
+
+view_reviews_bp = Blueprint('view_reviews', __name__, url_prefix='/api')
+
+class ViewReviewsController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        # Route for agents to view their reviews
+        view_reviews_bp.add_url_rule(
+            '/used_car_agent/view_reviews/<agent_id>',
+            view_func=self.view_reviews,
+            methods=['GET']
+        )
+
+    def view_reviews(self, agent_id):
+        """
+        Allows used car agents to view their reviews and average ratings.
+        """
+        # Verify agent existence
+        agent = User.get_user_by_id(agent_id)
+        if not agent or agent.get('role') != 'used_car_agent':
+            return jsonify({"error": "Agent not found."}), 404  # Not Found
+
+        reviews = Review.get_reviews_for_agent(agent_id)
+        average_rating = Review.get_average_rating(agent_id)
+        return jsonify({"reviews": reviews, "average_rating": average_rating}), 200
+
+# Instantiate the controller to register routes
+view_reviews_controller = ViewReviewsController()
+
+
+
+# Contents of: .\seller\get_metrics.py
+# backend/controllers/seller/get_metrics_controller.py
+from flask import Blueprint, jsonify
+from models.seller_metrics import SellerMetrics
+
+get_metrics_bp = Blueprint('get_metrics', __name__, url_prefix='/api/seller')
+
+class GetMetricsController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        get_metrics_bp.add_url_rule('/get_metrics/<listing_id>', view_func=self.get_metrics, methods=['GET'])
+
+    def get_metrics(self, listing_id):
+        metrics = SellerMetrics.get_metrics(listing_id)
+        return jsonify(metrics), 200 if metrics else 404
+
+# Instantiate the controller
+get_metrics_controller = GetMetricsController()
+
+
+
+# Contents of: .\seller\track_shortlist.py
+# backend/controllers/seller/track_shortlist_controller.py
+from flask import Blueprint, request, jsonify
+from models.seller_metrics import SellerMetrics
+
+track_shortlist_bp = Blueprint('track_shortlist', __name__, url_prefix='/api/seller')
+
+class TrackShortlistController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        track_shortlist_bp.add_url_rule('/track_shortlist', view_func=self.track_shortlist, methods=['POST'])
+
+    def track_shortlist(self):
+        data = request.get_json()
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            return jsonify(False), 400  # Bad Request
+        success = SellerMetrics.track_shortlist(listing_id)
+        return jsonify(success), 200 if success else 500
+
+# Instantiate the controller
+track_shortlist_controller = TrackShortlistController()
+
+
+
+# Contents of: .\seller\track_view.py
+# backend/controllers/seller/track_view_controller.py
+from flask import Blueprint, request, jsonify
+from models.seller_metrics import SellerMetrics
+
+track_view_bp = Blueprint('track_view', __name__, url_prefix='/api/seller')
+
+class TrackViewController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        track_view_bp.add_url_rule('/track_view', view_func=self.track_view, methods=['POST'])
+
+    def track_view(self):
+        data = request.get_json()
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            return jsonify(False), 400  # Bad Request
+        success = SellerMetrics.track_view(listing_id)
+        return jsonify(success), 200 if success else 500
+
+# Instantiate the controller
+track_view_controller = TrackViewController()
+
+
+
+# Contents of: .\used_car_agent\create_listing.py
+# backend/controllers/used_car_agent/create_listing_controller.py
+from flask import Blueprint, request, jsonify
+from models.used_car_listing import UsedCarListing
+
+create_listing_bp = Blueprint('create_listing', __name__, url_prefix='/api/used_car_agent')
+
+class CreateListingController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        create_listing_bp.add_url_rule('/create_listing', view_func=self.create_listing, methods=['POST'])
+
+    def create_listing(self):
+        data = request.get_json()
+        success = UsedCarListing.create_listing(data)
+        return jsonify(success), 201 if success else 500
+
+# Instantiate the controller
+create_listing_controller = CreateListingController()
+
+
+
+# Contents of: .\used_car_agent\delete_listing.py
+# backend/controllers/used_car_agent/delete_listing_controller.py
+from flask import Blueprint, jsonify
+from models.used_car_listing import UsedCarListing
+
+delete_listing_bp = Blueprint('delete_listing', __name__, url_prefix='/api/used_car_agent')
+
+class DeleteListingController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        delete_listing_bp.add_url_rule('/delete_listing/<listing_id>', view_func=self.delete_listing, methods=['DELETE'])
+
+    def delete_listing(self, listing_id):
+        success = UsedCarListing.delete_listing(listing_id)
+        return jsonify(success), 200 if success else 404
+
+# Instantiate the controller
+delete_listing_controller = DeleteListingController()
+
+
+
+# Contents of: .\used_car_agent\search_listings.py
+# backend/controllers/used_car_agent/search_listings_controller.py
+from flask import Blueprint, request, jsonify
+from models.used_car_listing import UsedCarListing
+
+search_listings_bp = Blueprint('search_listings', __name__, url_prefix='/api/used_car_agent')
+
+class SearchListingsController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        search_listings_bp.add_url_rule('/search_listings', view_func=self.search_listings, methods=['GET'])
+
+    def search_listings(self):
+        query = request.args.get('query')
+        if not query:
+            return jsonify([]), 400  # Bad Request
+        listings = UsedCarListing.search_listings(query)
+        return jsonify(listings), 200
+
+# Instantiate the controller
+search_listings_controller = SearchListingsController()
+
+
+
+# Contents of: .\used_car_agent\update_listing.py
+# backend/controllers/used_car_agent/update_listing_controller.py
+from flask import Blueprint, request, jsonify
+from models.used_car_listing import UsedCarListing
+
+update_listing_bp = Blueprint('update_listing', __name__, url_prefix='/api/used_car_agent')
+
+class UpdateListingController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        update_listing_bp.add_url_rule('/update_listing/<listing_id>', view_func=self.update_listing, methods=['PUT'])
+
+    def update_listing(self, listing_id):
+        data = request.get_json()
+        if not data:
+            return jsonify(False), 400  # Bad Request
+        success = UsedCarListing.update_listing(listing_id, data)
+        return jsonify(success), 200 if success else 404
+
+# Instantiate the controller
+update_listing_controller = UpdateListingController()
+
+
+
+# Contents of: .\user_admin\create_profile.py
+# backend/controllers/user_admin/create_profile_controller.py
+from flask import Blueprint, request, jsonify
+from models.profile import Profile
+
+create_profile_bp = Blueprint('create_profile', __name__, url_prefix='/api/user_admin')
+
+class CreateProfileController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        create_profile_bp.add_url_rule('/create_profile', view_func=self.create_profile, methods=['POST'])
+
+    def create_profile(self): 
+        data = request.json
+        # Basic validation
+        required_fields = ["role", "rights"]
+        if not all(field in data for field in required_fields):
+            return jsonify(False), 400
+
+        # Check if profile already exists
+        existing_profile = Profile.get_profile_by_role(data.get('role'))
+        if existing_profile:
+            print(data.get('role'))
+            return jsonify(False), 400
+
+        # Create profile
+        success = Profile.create_profile(data)
+        return jsonify(success), 200 if success else 500
+
+# Instantiate the controller
+create_profile_controller = CreateProfileController()
+
+
+
+# Contents of: .\user_admin\create_user.py
+# backend/controllers/user_admin/create_user_controller.py
+from flask import Blueprint, request, jsonify
+from models.user import User
+
+create_user_bp = Blueprint('create_user', __name__, url_prefix='/api/user_admin')
+
+class CreateUserController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        create_user_bp.add_url_rule('/create_user', view_func=self.create_user, methods=['POST'])
+
+    def create_user(self):
+        data = request.json
+        # Basic validation
+        required_fields = ["username", "password", "email", "role"]
+        if not all(field in data for field in required_fields):
+            return jsonify(False), 400
+
+        # Check if user already exists
+        if User.get_user_by_username(data.get('username')):
+            return jsonify(False), 400
+
+        # Create user and return result as a boolean
+        success = User.create_user(data)
+        return jsonify(success), 200 if success else 500
+
+# Instantiate the controller
+create_user_controller = CreateUserController()
+
+
+
+# Contents of: .\user_admin\reenable_profile.py
+# backend/controllers/user_admin/reenable_profile_controller.py
+from flask import Blueprint, jsonify
+from models.profile import Profile
+
+reenable_profile_bp = Blueprint('reenable_profile', __name__, url_prefix='/api/user_admin')
+
+class ReenableProfileController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        reenable_profile_bp.add_url_rule('/reenable_profile/<role>', view_func=self.reenable_profile, methods=['PATCH'])
+
+    def reenable_profile(self, role):
+        """
+        Re-enables a profile and all associated user accounts.
+        """
+        success = Profile.reenable_profile(role)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
+
+# Instantiate the controller
+reenable_profile_controller = ReenableProfileController()
+
+
+
+# Contents of: .\user_admin\reenable_user.py
+# backend/controllers/user_admin/reenable_user_controller.py
+from flask import Blueprint, jsonify
+from models.user import User
+
+reenable_user_bp = Blueprint('reenable_user', __name__, url_prefix='/api/user_admin')
+
+class ReenableUserController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        reenable_user_bp.add_url_rule('/reenable_user/<username>', view_func=self.reenable_user, methods=['PATCH'])
+
+    def reenable_user(self, username):
+        """
+        Re-enable a suspended user account.
+        """
+        success = User.reenable_user(username)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
+
+# Instantiate the controller
+reenable_user_controller = ReenableUserController()
+
+
+
+# Contents of: .\user_admin\search_profiles.py
+# backend/controllers/user_admin/search_profiles_controller.py
+from flask import Blueprint, request, jsonify
+from models.profile import Profile
+
+search_profiles_bp = Blueprint('search_profiles', __name__, url_prefix='/api/user_admin')
+
+class SearchProfilesController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        search_profiles_bp.add_url_rule('/search_profiles', view_func=self.search_profiles, methods=['GET'])
+
+    def search_profiles(self):
+        """
+        Search User Profiles by a general query that matches role or rights.
+        """
+        query = request.args.get('query')
+        if not query:
+            return jsonify([]), 400
+
+        profiles = Profile.search_profiles(query)
+        return jsonify(profiles), 200
+
+# Instantiate the controller
+search_profiles_controller = SearchProfilesController()
+
+
+
+# Contents of: .\user_admin\search_users.py
+# backend/controllers/user_admin/search_users_controller.py
+from flask import Blueprint, request, jsonify
+from models.user import User
+
+search_users_bp = Blueprint('search_users', __name__, url_prefix='/api/user_admin')
+
+class SearchUsersController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        search_users_bp.add_url_rule('/search_users', view_func=self.search_users, methods=['GET'])
+
+    def search_users(self):
+        """
+        Search User Accounts by a general query that matches username or email.
+        """
+        query = request.args.get('query')
+        if not query:
+            return jsonify([]), 400
+
+        users = User.search_users(query)
+        return jsonify(users), 200
+
+# Instantiate the controller
+search_users_controller = SearchUsersController()
+
+
+
+# Contents of: .\user_admin\suspend_profile.py
+# backend/controllers/user_admin/suspend_profile_controller.py
+from flask import Blueprint, jsonify
+from models.profile import Profile
+
+suspend_profile_bp = Blueprint('suspend_profile', __name__, url_prefix='/api/user_admin')
+
+class SuspendProfileController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        suspend_profile_bp.add_url_rule('/suspend_profile/<role>', view_func=self.suspend_profile, methods=['PATCH'])
+
+    def suspend_profile(self, role):
+        """
+        Suspends a profile and all associated user accounts.
+        """
+        success = Profile.suspend_profile(role)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
+
+# Instantiate the controller
+suspend_profile_controller = SuspendProfileController()
+
+
+
+# Contents of: .\user_admin\suspend_user.py
+# backend/controllers/user_admin/suspend_user_controller.py
+from flask import Blueprint, jsonify
+from models.user import User
+
+suspend_user_bp = Blueprint('suspend_user', __name__, url_prefix='/api/user_admin')
+
+class SuspendUserController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        suspend_user_bp.add_url_rule('/suspend_user/<username>', view_func=self.suspend_user, methods=['PATCH'])
+
+    def suspend_user(self, username):
+        success = User.suspend_user(username)
+        if not success:
+            return jsonify(False), 404
+        return jsonify(success), 200
+
+# Instantiate the controller
+suspend_user_controller = SuspendUserController()
+
+
+
+# Contents of: .\user_admin\update_profile.py
+# backend/controllers/user_admin/update_profile_controller.py
+from flask import Blueprint, request, jsonify
+from models.profile import Profile
+
+update_profile_bp = Blueprint('update_profile', __name__, url_prefix='/api/user_admin')
+
+class UpdateProfileController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        update_profile_bp.add_url_rule('/update_profile/<role>', view_func=self.update_profile, methods=['PUT'])
+
+    def update_profile(self, role):
+        data = request.json
+        if not data:
+            return jsonify(False), 400
+
+        # Update profile
+        success = Profile.update_profile(role, data)
+        if not success:
+            return jsonify(False), 404
+
+        return jsonify(success), 200
+
+# Instantiate the controller
+update_profile_controller = UpdateProfileController()
+
+
+
+# Contents of: .\user_admin\update_user.py
+# backend/controllers/user_admin/update_user_controller.py
+from flask import Blueprint, request, jsonify
+from models.user import User
+
+update_user_bp = Blueprint('update_user', __name__, url_prefix='/api/user_admin')
+
+class UpdateUserController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        update_user_bp.add_url_rule('/update_user/<username>', view_func=self.update_user, methods=['PUT'])
+
+    def update_user(self, username):
+        data = request.json
+        if not data:
+            return jsonify(False), 400
+
+        # Update user
+        success = User.update_user(username, data)
+        if not success:
+            return jsonify(False), 404
+
+        return jsonify(success), 200
+
+# Instantiate the controller
+update_user_controller = UpdateUserController()
+
+
+
+# Contents of: .\user_admin\view_profiles.py
+# backend/controllers/user_admin/view_profiles_controller.py
+from flask import Blueprint, request, jsonify
+from models.profile import Profile
+
+view_profiles_bp = Blueprint('view_profiles', __name__, url_prefix='/api/user_admin')
+
+class ViewProfilesController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        view_profiles_bp.add_url_rule('/view_profiles', view_func=self.view_profiles, methods=['GET'])
+
+    def view_profiles(self):
+        """
+        View User Profiles with optional filtering by role.
+        """
+        role = request.args.get('role')
+
+        # Fetch profiles based on the provided role
+        profiles = Profile.get_profile_by_role(role) if role else Profile.get_profile_by_role() 
+
+        return jsonify(profiles), 200
+
+# Instantiate the controller
+view_profiles_controller = ViewProfilesController()
+
+
+
+# Contents of: .\user_admin\view_users.py
+# backend/controllers/user_admin/view_users_controller.py
+from flask import Blueprint, request, jsonify
+from models.user import User
+
+view_users_bp = Blueprint('view_users', __name__, url_prefix='/api/user_admin')
+
+class ViewUsersController:
+    def __init__(self):
+        self.register_routes()
+
+    def register_routes(self):
+        view_users_bp.add_url_rule('/view_users', view_func=self.view_users, methods=['GET'])
+
+    def view_users(self):
+        """
+        View User Accounts with optional filtering by username, email, role, and status.
+        """
+        username = request.args.get('username')
+        email = request.args.get('email')
+        role = request.args.get('role')
+        status = request.args.get('status')  # Expected values: 'active' or 'suspended'
+
+        # Fetch users based on the provided filters
+        users = User.filter_users(username=username, email=email, role=role, status=status)
+
+        return jsonify(users), 200
+
+# Instantiate the controller
+view_users_controller = ViewUsersController()
+

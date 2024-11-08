@@ -1,7 +1,7 @@
 # backend/controllers/review/view_reviews_controller.py
-from flask import Blueprint, jsonify
-from models.review import Review
-from models.user import User
+
+from flask import Blueprint, jsonify, request
+from models.review import ReviewModel
 
 view_reviews_bp = Blueprint('view_reviews', __name__, url_prefix='/api')
 
@@ -19,16 +19,11 @@ class ViewReviewsController:
 
     def view_reviews(self, agent_id):
         """
-        Allows used car agents to view their reviews and average ratings.
+        Endpoint for used car agents to view their reviews and average ratings.
+        Delegates all processing to the ReviewModel.
         """
-        # Verify agent existence
-        agent = User.get_user_by_id(agent_id)
-        if not agent or agent.get('role') != 'used_car_agent':
-            return jsonify({"error": "Agent not found."}), 404  # Not Found
-
-        reviews = Review.get_reviews_for_agent(agent_id)
-        average_rating = Review.get_average_rating(agent_id)
-        return jsonify({"reviews": reviews, "average_rating": average_rating}), 200
+        response, status_code = ReviewModel.get_reviews_and_average(agent_id)
+        return jsonify(response), status_code
 
 # Instantiate the controller to register routes
 view_reviews_controller = ViewReviewsController()

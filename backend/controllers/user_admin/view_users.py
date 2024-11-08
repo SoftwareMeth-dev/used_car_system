@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/view_users_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.user import User
 
@@ -13,17 +14,16 @@ class ViewUsersController:
 
     def view_users(self):
         """
-        View User Accounts with optional filtering by username, email, role, and status.
+        Endpoint to view user accounts with optional filtering by username, email, role, and status.
+        Delegates processing to UserModel.
         """
         username = request.args.get('username')
         email = request.args.get('email')
         role = request.args.get('role')
         status = request.args.get('status')  # Expected values: 'active' or 'suspended'
 
-        # Fetch users based on the provided filters
-        users = User.filter_users(username=username, email=email, role=role, status=status)
-
-        return jsonify(users), 200
+        response, status_code = UserModel.filter_users(username=username, email=email, role=role, status=status)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 view_users_controller = ViewUsersController()

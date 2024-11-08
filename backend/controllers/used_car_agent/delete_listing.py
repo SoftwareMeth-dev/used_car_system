@@ -1,4 +1,5 @@
 # backend/controllers/used_car_agent/delete_listing_controller.py
+
 from flask import Blueprint, jsonify
 from models.used_car_listing import UsedCarListing
 
@@ -12,8 +13,12 @@ class DeleteListingController:
         delete_listing_bp.add_url_rule('/delete_listing/<listing_id>', view_func=self.delete_listing, methods=['DELETE'])
 
     def delete_listing(self, listing_id):
-        success = UsedCarListing.delete_listing(listing_id)
-        return jsonify(success), 200 if success else 404
+        """
+        Endpoint to delete a used car listing by its listing_id.
+        Delegates processing to UsedCarListingModel.
+        """
+        response, status_code = UsedCarListingModel.delete_listing(listing_id)
+        return jsonify(response), status_code
 
-# Instantiate the controller
+# Instantiate the controller to register routes
 delete_listing_controller = DeleteListingController()

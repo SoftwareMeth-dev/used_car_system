@@ -1,4 +1,5 @@
 # backend/controllers/used_car_agent/search_listings_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
 
@@ -12,11 +13,13 @@ class SearchListingsController:
         search_listings_bp.add_url_rule('/search_listings', view_func=self.search_listings, methods=['GET'])
 
     def search_listings(self):
+        """
+        Endpoint to search used car listings based on a query string.
+        Delegates processing to UsedCarListingModel.
+        """
         query = request.args.get('query')
-        if not query:
-            return jsonify([]), 400  # Bad Request
-        listings = UsedCarListing.search_listings(query)
-        return jsonify(listings), 200
+        response, status_code = UsedCarListingModel.search_listings(query)
+        return jsonify(response), status_code
 
-# Instantiate the controller
+# Instantiate the controller to register routes
 search_listings_controller = SearchListingsController()

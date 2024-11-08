@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/view_profiles_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.profile import Profile
 
@@ -13,14 +14,12 @@ class ViewProfilesController:
 
     def view_profiles(self):
         """
-        View User Profiles with optional filtering by role.
+        Endpoint to view user profiles with optional filtering by role.
+        Delegates processing to ProfileModel.
         """
         role = request.args.get('role')
-
-        # Fetch profiles based on the provided role
-        profiles = Profile.get_profile_by_role(role) if role else Profile.get_profile_by_role() 
-
-        return jsonify(profiles), 200
+        response, status_code = ProfileModel.get_profiles(role)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 view_profiles_controller = ViewProfilesController()

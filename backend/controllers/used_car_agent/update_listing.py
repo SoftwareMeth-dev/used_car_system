@@ -1,4 +1,5 @@
 # backend/controllers/used_car_agent/update_listing_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
 
@@ -12,11 +13,13 @@ class UpdateListingController:
         update_listing_bp.add_url_rule('/update_listing/<listing_id>', view_func=self.update_listing, methods=['PUT'])
 
     def update_listing(self, listing_id):
+        """
+        Endpoint to update a used car listing by its listing_id.
+        Delegates processing to UsedCarListingModel.
+        """
         data = request.get_json()
-        if not data:
-            return jsonify(False), 400  # Bad Request
-        success = UsedCarListing.update_listing(listing_id, data)
-        return jsonify(success), 200 if success else 404
+        response, status_code = UsedCarListingModel.update_listing(listing_id, data)
+        return jsonify(response), status_code
 
-# Instantiate the controller
+# Instantiate the controller to register routes
 update_listing_controller = UpdateListingController()

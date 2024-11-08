@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/reenable_profile_controller.py
+
 from flask import Blueprint, jsonify
 from models.profile import Profile
 
@@ -13,12 +14,11 @@ class ReenableProfileController:
 
     def reenable_profile(self, role):
         """
-        Re-enables a profile and all associated user accounts.
+        Endpoint to re-enable a user profile and associated user accounts.
+        Delegates processing to ProfileModel.
         """
-        success = Profile.reenable_profile(role)
-        if not success:
-            return jsonify(False), 404
-        return jsonify(success), 200
+        response, status_code = ProfileModel.reenable_profile(role)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 reenable_profile_controller = ReenableProfileController()

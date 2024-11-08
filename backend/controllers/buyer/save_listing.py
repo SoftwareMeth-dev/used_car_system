@@ -1,4 +1,5 @@
 # backend/controllers/buyer/save_listing_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.buyer_listing import BuyerListing
 
@@ -13,14 +14,8 @@ class SaveListingController:
 
     def save_listing(self):
         data = request.get_json()
-        user_id = data.get('user_id')
-        listing_id = data.get('listing_id')
-
-        if not user_id or not listing_id:
-            return jsonify(False), 400  # Bad Request
-
-        success = BuyerListing.save_listing(user_id, listing_id)
-        return jsonify(success), 200 if success else 400
+        response, status_code = BuyerListing.save_listing(data)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 save_listing_controller = SaveListingController()

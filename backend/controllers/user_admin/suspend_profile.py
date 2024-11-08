@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/suspend_profile_controller.py
+
 from flask import Blueprint, jsonify
 from models.profile import Profile
 
@@ -13,12 +14,11 @@ class SuspendProfileController:
 
     def suspend_profile(self, role):
         """
-        Suspends a profile and all associated user accounts.
+        Endpoint to suspend a user profile and associated user accounts.
+        Delegates processing to ProfileModel.
         """
-        success = Profile.suspend_profile(role)
-        if not success:
-            return jsonify(False), 404
-        return jsonify(success), 200
+        response, status_code = ProfileModel.suspend_profile(role)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 suspend_profile_controller = SuspendProfileController()

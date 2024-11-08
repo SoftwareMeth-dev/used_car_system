@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/update_profile_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.profile import Profile
 
@@ -12,16 +13,13 @@ class UpdateProfileController:
         update_profile_bp.add_url_rule('/update_profile/<role>', view_func=self.update_profile, methods=['PUT'])
 
     def update_profile(self, role):
-        data = request.json
-        if not data:
-            return jsonify(False), 400
-
-        # Update profile
-        success = Profile.update_profile(role, data)
-        if not success:
-            return jsonify(False), 404
-
-        return jsonify(success), 200
+        """
+        Endpoint to update a user profile based on role.
+        Delegates processing to ProfileModel.
+        """
+        data = request.get_json()
+        response, status_code = ProfileModel.update_profile(role, data)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 update_profile_controller = UpdateProfileController()

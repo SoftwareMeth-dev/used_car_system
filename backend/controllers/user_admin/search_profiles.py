@@ -1,4 +1,5 @@
 # backend/controllers/user_admin/search_profiles_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.profile import Profile
 
@@ -13,14 +14,12 @@ class SearchProfilesController:
 
     def search_profiles(self):
         """
-        Search User Profiles by a general query that matches role or rights.
+        Endpoint to search user profiles based on a query matching role or rights.
+        Delegates processing to ProfileModel.
         """
         query = request.args.get('query')
-        if not query:
-            return jsonify([]), 400
-
-        profiles = Profile.search_profiles(query)
-        return jsonify(profiles), 200
+        response, status_code = ProfileModel.search_profiles(query)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 search_profiles_controller = SearchProfilesController()

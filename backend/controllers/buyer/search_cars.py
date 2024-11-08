@@ -1,4 +1,5 @@
 # backend/controllers/buyer/search_cars_controller.py
+
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
 
@@ -13,10 +14,8 @@ class SearchCarsController:
 
     def search_cars(self):
         query = request.args.get('query')
-        if not query:
-            return jsonify([]), 400  # Bad Request if query is missing
-        listings = UsedCarListing.search_listings(query)
-        return jsonify(listings), 200
+        response, status_code = UsedCarListing.search_cars(query)
+        return jsonify(response), status_code
 
 # Instantiate the controller
 search_cars_controller = SearchCarsController()
