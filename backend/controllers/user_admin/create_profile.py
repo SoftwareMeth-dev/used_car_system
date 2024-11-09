@@ -18,9 +18,7 @@ class CreateProfileController:
         Delegates processing to Profile.
         """
         data = request.get_json() 
-        response, status_code = Profile.create_profile(data)
-        print(response)
-        print(status_code)
+        response, status_code = Profile.create_profile(data) 
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes
