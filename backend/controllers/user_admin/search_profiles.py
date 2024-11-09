@@ -15,10 +15,10 @@ class SearchProfilesController:
     def search_profiles(self):
         """
         Endpoint to search user profiles based on a query matching role or rights.
-        Delegates processing to ProfileModel.
+        Delegates processing to Profile.
         """
         query = request.args.get('query')
-        response, status_code = ProfileModel.search_profiles(query)
+        response, status_code = Profile.search_profiles(query)
         return jsonify(response), status_code
 
 # Instantiate the controller

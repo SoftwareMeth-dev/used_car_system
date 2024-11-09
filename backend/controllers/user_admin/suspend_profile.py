@@ -15,9 +15,9 @@ class SuspendProfileController:
     def suspend_profile(self, role):
         """
         Endpoint to suspend a user profile and associated user accounts.
-        Delegates processing to ProfileModel.
+        Delegates processing to Profile.
         """
-        response, status_code = ProfileModel.suspend_profile(role)
+        response, status_code = Profile.suspend_profile(role)
         return jsonify(response), status_code
 
 # Instantiate the controller

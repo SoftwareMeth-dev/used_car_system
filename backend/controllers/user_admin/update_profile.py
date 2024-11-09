@@ -15,10 +15,10 @@ class UpdateProfileController:
     def update_profile(self, role):
         """
         Endpoint to update a user profile based on role.
-        Delegates processing to ProfileModel.
+        Delegates processing to Profile.
         """
         data = request.get_json()
-        response, status_code = ProfileModel.update_profile(role, data)
+        response, status_code = Profile.update_profile(role, data)
         return jsonify(response), status_code
 
 # Instantiate the controller

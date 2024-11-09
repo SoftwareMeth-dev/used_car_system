@@ -15,10 +15,10 @@ class CreateUserController:
     def create_user(self):
         """
         Endpoint to create a new user account.
-        Delegates processing to UserModel.
+        Delegates processing to User.
         """
         data = request.get_json()
-        response, status_code = UserModel.create_user(data)
+        response, status_code = User.create_user(data)
         return jsonify(response), status_code
 
 # Instantiate the controller

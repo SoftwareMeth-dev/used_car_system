@@ -15,9 +15,9 @@ class ReenableProfileController:
     def reenable_profile(self, role):
         """
         Endpoint to re-enable a user profile and associated user accounts.
-        Delegates processing to ProfileModel.
+        Delegates processing to Profile.
         """
-        response, status_code = ProfileModel.reenable_profile(role)
+        response, status_code = Profile.reenable_profile(role)
         return jsonify(response), status_code
 
 # Instantiate the controller

@@ -52,23 +52,24 @@ class Profile:
             validated_data = schema.load(profile_data)
         except ValidationError as err:
             logger.warning(f"Validation errors during profile creation: {err.messages}")
-            return {"data": {"error": err.messages}, "status_code": 400}  # Bad Request
+            return{"error": err.messages},  400 # Bad Request
 
         try:
             existing_profile = profiles_collection.find_one({"role": validated_data['role']})
             if existing_profile:
                 logger.warning(f"Profile with role '{validated_data['role']}' already exists.")
-                return {"data": {"error": "Profile with this role already exists."}, "status_code": 400}  # Bad Request
+                return{"error": "Profile with this role already exists."},  400 # Bad Request
 
             result = profiles_collection.insert_one(validated_data)
             if result.inserted_id:
                 logger.info(f"Profile created successfully with ID: {result.inserted_id}")
-                return {"data": {"message": "Profile created successfully."}, "status_code": 201}  # Created
+                
+                return {"message": "Profile created successfully."}, 201  # Created
             logger.error("Failed to create profile without exception.")
-            return {"data": {"error": "Failed to create profile."}, "status_code": 500}  # Internal Server Error
+            return{"error": "Failed to create profile."},  500  # Internal Server Error
         except Exception as e:
             logger.exception(f"Exception during profile creation: {e}")
-            return {"data": {"error": "An error occurred while creating the profile."}, "status_code": 500}  # Internal Server Error
+            return{"error": "An error occurred while creating the profile."},  500  # Internal Server Error
 
     @staticmethod
     def get_profile_by_role(role):
@@ -81,12 +82,12 @@ class Profile:
             if profile:
                 serialized = serialize_profile(profile)
                 logger.info(f"Profile retrieved for role '{role}'.")
-                return {"data": {"profile": serialized}, "status_code": 200}  # OK
+                return{"profile": serialized},  200  # OK
             logger.warning(f"Profile not found with role: {role}")
-            return {"data": {"profile": None}, "status_code": 404}  # Not Found
+            return{"profile": None},  404  # Not Found
         except Exception as e:
             logger.exception(f"Exception during fetching profile by role '{role}': {e}")
-            return {"data": {"profile": None}, "status_code": 500}  # Internal Server Error
+            return{"profile": None},  500  # Internal Server Error
 
     @staticmethod
     def get_profiles(role=None):
@@ -102,10 +103,10 @@ class Profile:
                 profiles = list(profiles_collection.find())
                 serialized = serialize_profiles(profiles)
                 logger.info("All profiles retrieved successfully.")
-                return {"data": {"profiles": serialized}, "status_code": 200}
+                return{"profiles": serialized},  200
         except Exception as e:
             logger.exception(f"Exception during fetching profiles: {e}")
-            return {"data": {"error": "Failed to fetch profiles."}, "status_code": 500}  # Internal Server Error
+            return{"error": "Failed to fetch profiles."},  500  # Internal Server Error
 
     @staticmethod
     def update_profile(role, update_data):
@@ -116,25 +117,25 @@ class Profile:
         """
         if not update_data:
             logger.warning("No update data provided for profile.")
-            return {"data": {"error": "No update data provided."}, "status_code": 400}  # Bad Request
+            return{"error": "No update data provided."},  400  # Bad Request
 
         schema = UpdateProfileSchema()
         try:
             validated_data = schema.load(update_data)
         except ValidationError as err:
             logger.warning(f"Validation errors during profile update: {err.messages}")
-            return {"data": {"error": err.messages}, "status_code": 400}  # Bad Request
+            return{"error": err.messages},  400  # Bad Request
 
         try:
             result = profiles_collection.update_one({"role": role}, {"$set": validated_data})
             if result.modified_count > 0:
                 logger.info(f"Profile with role '{role}' updated successfully.")
-                return {"data": {"message": "Profile updated successfully."}, "status_code": 200}
+                return{"message": "Profile updated successfully."},  200
             logger.warning(f"No changes made to profile with role '{role}'.")
-            return {"data": {"message": "No changes made to the profile."}, "status_code": 200}
+            return{"message": "No changes made to the profile."},  200
         except Exception as e:
             logger.exception(f"Exception during profile update: {e}")
-            return {"data": {"error": "Failed to update profile."}, "status_code": 500}  # Internal Server Error
+            return{"error": "Failed to update profile."},  500  # Internal Server Error
 
     @staticmethod
     def suspend_profile(role):
@@ -150,14 +151,14 @@ class Profile:
                 # Suspend all users with this role
                 suspend_result = User.suspend_users_by_role(role)
                 if suspend_result['status_code'] == 200:
-                    return {"data": {"message": "Profile and associated users suspended successfully."}, "status_code": 200}
+                    return{"message": "Profile and associated users suspended successfully."},  200
                 logger.warning(f"Profile suspended but failed to suspend users with role '{role}'.")
-                return {"data": {"error": "Profile suspended but failed to suspend associated users."}, "status_code": 500}
+                return{"error": "Profile suspended but failed to suspend associated users."},  500
             logger.warning(f"Profile with role '{role}' not found for suspension.")
-            return {"data": {"error": "Profile not found."}, "status_code": 404}  # Not Found
+            return{"error": "Profile not found."},  404 # Not Found
         except Exception as e:
             logger.exception(f"Exception during suspending profile '{role}': {e}")
-            return {"data": {"error": "Failed to suspend profile."}, "status_code": 500}  # Internal Server Error
+            return{"error": "Failed to suspend profile."},  500  # Internal Server Error
 
     @staticmethod
     def reenable_profile(role):
@@ -173,14 +174,14 @@ class Profile:
                 # Re-enable all users with this role
                 reenable_result = User.reenable_users_by_role(role)
                 if reenable_result['status_code'] == 200:
-                    return {"data": {"message": "Profile and associated users re-enabled successfully."}, "status_code": 200}
+                    return{"message": "Profile and associated users re-enabled successfully."},  200
                 logger.warning(f"Profile re-enabled but failed to re-enable users with role '{role}'.")
-                return {"data": {"error": "Profile re-enabled but failed to re-enable associated users."}, "status_code": 500}
+                return{"error": "Profile re-enabled but failed to re-enable associated users."},  500
             logger.warning(f"Profile with role '{role}' not found for re-enabling.")
-            return {"data": {"error": "Profile not found."}, "status_code": 404}  # Not Found
+            return{"error": "Profile not found."},  404  # Not Found
         except Exception as e:
             logger.exception(f"Exception during re-enabling profile '{role}': {e}")
-            return {"data": {"error": "Failed to re-enable profile."}, "status_code": 500}  # Internal Server Error
+            return{"error": "Failed to re-enable profile."},  500  # Internal Server Error
 
     @staticmethod
     def search_profiles(query):
@@ -190,7 +191,7 @@ class Profile:
         """
         if not query:
             logger.warning("Search query parameter is missing for profiles.")
-            return {"data": {"error": "Query parameter is required."}, "status_code": 400}  # Bad Request
+            return{"error": "Query parameter is required."},  400  # Bad Request
         try:
             cursor = profiles_collection.find({"$or": [
                 {"role": {"$regex": query, "$options": "i"}},
@@ -198,7 +199,7 @@ class Profile:
             ]})
             serialized_profiles = serialize_profiles(cursor)
             logger.info(f"Search completed for profiles with query: '{query}'")
-            return {"data": {"profiles": serialized_profiles}, "status_code": 200}  # OK
+            return{"profiles": serialized_profiles},  200 # OK
         except Exception as e:
             logger.exception(f"Exception during searching profiles with query '{query}': {e}")
-            return {"data": {"error": "Failed to search profiles."}, "status_code": 500}  # Internal Server Error
+            return{"error": "Failed to search profiles."},  500  # Internal Server Error

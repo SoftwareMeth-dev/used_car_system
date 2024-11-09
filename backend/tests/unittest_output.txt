@@ -1,0 +1,19 @@
+test_1_user_admin_login_logout (__main__.TestEndpoints.test_1_user_admin_login_logout)
+Test User Admin login and logout functionalities. ... ok
+test_2_used_car_agent_login_logout (__main__.TestEndpoints.test_2_used_car_agent_login_logout)
+Test Used Car Agent login and logout functionalities. ... ok
+test_3_buyer_login_logout (__main__.TestEndpoints.test_3_buyer_login_logout)
+Test Buyer login and logout functionalities. ... ok
+test_4_seller_login_logout (__main__.TestEndpoints.test_4_seller_login_logout)
+Test Seller login and logout functionalities. ... ok
+test_5_login_wrong_password (__main__.TestEndpoints.test_5_login_wrong_password)
+Test login functionality with incorrect password. ... ok
+test_6_login_non_existing_user (__main__.TestEndpoints.test_6_login_non_existing_user)
+Test login functionality with a non-existing user. ... ok
+test_7_create_duplicate_user (__main__.TestEndpoints.test_8_create_duplicate_user)
+Test creating a duplicate user to ensure appropriate error handling. ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 41.279s
+
+OK

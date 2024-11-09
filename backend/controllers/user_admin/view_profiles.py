@@ -15,10 +15,10 @@ class ViewProfilesController:
     def view_profiles(self):
         """
         Endpoint to view user profiles with optional filtering by role.
-        Delegates processing to ProfileModel.
+        Delegates processing to Profile.
         """
         role = request.args.get('role')
-        response, status_code = ProfileModel.get_profiles(role)
+        response, status_code = Profile.get_profiles(role)
         return jsonify(response), status_code
 
 # Instantiate the controller

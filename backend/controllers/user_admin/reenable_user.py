@@ -14,9 +14,9 @@ class ReenableUserController:
     def reenable_user(self, username):
         """
         Endpoint to re-enable a suspended user account.
-        Delegates processing to UserModel.
+        Delegates processing to User.
         """
-        response, status_code = UserModel.reenable_user(username)
+        response, status_code = User.reenable_user(username)
         return jsonify(response), status_code
 
 # Instantiate the controller

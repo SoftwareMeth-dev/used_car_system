@@ -1,0 +1,1274 @@
+ 
+
+# Contents of: .\buyer_listing.py
+# backend/models/buyer_listing.py
+
+from utils.db import db
+from bson import ObjectId
+from bson.errors import InvalidId
+
+buyer_listing_collection = db['buyer_shortlists']
+
+def serialize_listing(listing):
+    if not listing:
+        return None
+    listing['_id'] = str(listing['_id'])
+    listing['seller_id'] = str(listing['seller_id']) if listing.get('seller_id') else None
+    listing['created_at'] = listing['created_at'].isoformat() if listing.get('created_at') else None
+    return listing
+
+def serialize_listings(listings):
+    return [serialize_listing(listing) for listing in listings]
+
+class BuyerListing:
+    @staticmethod
+    def save_listing(data):
+        """
+        Saves a listing to the buyer's shortlist.
+        Expects data to contain 'user_id' and 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
+        """
+        user_id = data.get('user_id')
+        listing_id = data.get('listing_id')
+
+        if not user_id or not listing_id:
+            return {"error": "user_id and listing_id are required."}, 400
+
+        try:
+            listing_oid = ObjectId(listing_id)
+        except InvalidId:
+            return {"error": "Invalid listing_id."}, 400
+
+        try:
+            result = buyer_listing_collection.update_one(
+                {"user_id": user_id},
+                {"$addToSet": {"shortlist": listing_oid}},
+                upsert=True
+            )
+            if result.modified_count > 0 or result.upserted_id is not None:
+                return {"message": "Listing saved successfully."}, 200
+            else:
+                return {"message": "Listing already in shortlist."}, 200
+        except Exception as e:
+            print(f"Error in BuyerListing.save_listing: {e}")
+            return {"error": "Failed to save listing."}, 500
+
+    @staticmethod
+    def get_shortlist(user_id):
+        """
+        Retrieves the user's shortlist.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            user = buyer_listing_collection.find_one({"user_id": user_id})
+            if user:
+                shortlist = [str(oid) for oid in user.get('shortlist', [])]
+                return {"shortlist": shortlist}, 200
+            return {"shortlist": []}, 200
+        except Exception as e:
+            print(f"Error in BuyerListing.get_shortlist: {e}")
+            return {"error": "Failed to retrieve shortlist."}, 500
+
+    @staticmethod
+    def search_shortlist(data):
+        """
+        Searches the buyer's shortlist based on query or listing_id.
+        Expects data to contain 'user_id' and either 'query' or 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
+        """
+        user_id = data.get('user_id')
+        query = data.get('query')
+        listing_id = data.get('listing_id')
+
+        if not user_id:
+            return {"error": "user_id is required."}, 400
+
+        if not query and not listing_id:
+            return {"error": "Either query or listing_id must be provided."}, 400
+
+        try:
+            return BuyerListing._search_shortlist_logic(user_id, query, listing_id)
+        except Exception as e:
+            print(f"Error in BuyerListing.search_shortlist: {e}")
+            return {"error": "Failed to search shortlist."}, 500
+
+    @staticmethod
+    def _search_shortlist_logic(user_id, query=None, listing_id=None):
+        """
+        Internal method to handle the search logic.
+        """
+        shortlist_doc = buyer_listing_collection.find_one({"user_id": user_id})
+        if not shortlist_doc:
+            return {"listings": []}, 200
+
+        shortlist_ids = shortlist_doc.get('shortlist', [])
+        # Convert all listing_ids to ObjectIds, skip invalid ones
+        valid_ids = []
+        for lid in shortlist_ids:
+            if isinstance(lid, ObjectId):
+                valid_ids.append(lid)
+            elif isinstance(lid, str):
+                try:
+                    valid_ids.append(ObjectId(lid))
+                except InvalidId:
+                    print(f"Invalid listing_id in shortlist: {lid}")
+                    continue  # Skip invalid IDs
+
+        if not valid_ids:
+            return {"listings": []}, 200
+
+        # Construct the query
+        mongo_query = {
+            "_id": {"$in": valid_ids}
+        }
+
+        if listing_id:
+            try:
+                listing_oid = ObjectId(listing_id)
+                mongo_query["_id"] = listing_oid
+            except InvalidId:
+                return {"error": "Invalid listing_id parameter."}, 400
+        elif query:
+            mongo_query["$or"] = [
+                {"make": {"$regex": query, "$options": "i"}},
+                {"model": {"$regex": query, "$options": "i"}},
+                {"year": {"$regex": query, "$options": "i"}}
+            ]
+
+        # Perform the search using UsedCarListing model
+        from models.used_car_listing import UsedCarListing
+        listings = UsedCarListing.search_listings_with_query(mongo_query)
+        return {"listings": listings}, 200
+
+
+
+# Contents of: .\gettxt.py
+import os
+import shutil
+
+def collect_python_files_to_text(folder_path=".", output_file="all_python_files.txt"):
+    with open(output_file, 'a') as txt_file:  # Open in append mode
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                if file.endswith('.py'):
+                    py_file_path = os.path.join(root, file)
+                    try:
+                        with open(py_file_path, 'r') as py_file:
+                            txt_file.write(f"\n\n# Contents of: {py_file_path}\n")
+                            shutil.copyfileobj(py_file, txt_file)
+                            txt_file.write("\n")  # Add newline after each file
+                        print(f"Appended {py_file_path} to {output_file}")
+                    except Exception as e:
+                        print(f"Could not read {py_file_path}: {e}")
+
+# Run the function from the current directory
+collect_python_files_to_text()
+
+
+
+# Contents of: .\loan_calculator.py
+# backend/models/loan_calculator_model.py
+
+from utils.loan_calculator import LoanCalculator
+from models.used_car_listing import UsedCarListing
+
+class LoanCalculatorModel:
+    @staticmethod
+    def calculate_loan(data):
+        """
+        Handles loan calculation by validating input, fetching listing, and performing calculations.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            # Extract and validate data
+            listing_id = data.get('listing_id')
+            annual_interest_rate = data.get('annual_interest_rate')
+            loan_term_months = data.get('loan_term_months')
+            down_payment = data.get('down_payment', 0)
+
+            required_fields = ['listing_id', 'annual_interest_rate', 'loan_term_months']
+            missing_fields = [field for field in required_fields if field not in data]
+            if missing_fields:
+                return {"error": f"Missing required fields: {', '.join(missing_fields)}."}, 400
+
+            # Type conversion and validation
+            try:
+                annual_interest_rate = float(annual_interest_rate)
+                loan_term_months = int(loan_term_months)
+                down_payment = float(down_payment)
+            except ValueError:
+                return {"error": "Invalid data types for one or more fields."}, 400
+
+            # Fetch listing
+            listing = UsedCarListing.get_listing_by_id(listing_id)
+            if not listing:
+                return {"error": "Car listing not found."}, 404
+
+            principal = listing.get('price')
+            if principal is None:
+                return {"error": "Listing price not available."}, 500
+
+            # Perform loan calculation
+            loan_calculator = LoanCalculator(
+                principal=principal,
+                annual_interest_rate=annual_interest_rate,
+                loan_term_months=loan_term_months,
+                down_payment=down_payment
+            )
+            loan_details = loan_calculator.calculate()
+
+            return loan_details, 200
+
+        except ValueError as ve:
+            return {"error": str(ve)}, 400
+        except Exception as e:
+            print(f"Error in LoanCalculatorModel.calculate_loan: {e}")
+            return {"error": "An error occurred while processing the loan calculation."}, 500
+
+
+
+# Contents of: .\profile.py
+# backend/models/profile.py
+
+import logging
+from utils.db import db
+from marshmallow import Schema, fields, ValidationError
+from models.user import User  
+
+# Configure Logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+profiles_collection = db['profiles']
+
+
+def serialize_profile(profile):
+    if not profile:
+        return None
+    profile['_id'] = str(profile['_id'])
+    return profile
+
+
+def serialize_profiles(profiles):
+    return [serialize_profile(profile) for profile in profiles]
+
+
+class CreateProfileSchema(Schema):
+    role = fields.Str(required=True)
+    rights = fields.Str(required=True)
+    # Add other necessary fields here
+
+
+class UpdateProfileSchema(Schema):
+    rights = fields.Str()
+    # Add other fields that can be updated
+
+
+class Profile:
+    @staticmethod
+    def create_profile(profile_data):
+        """
+        Creates a new user profile.
+        Validates input data and inserts into the database.
+        Returns a dictionary with 'data' and 'status_code'.
+        """
+        schema = CreateProfileSchema()
+        try:
+            validated_data = schema.load(profile_data)
+        except ValidationError as err:
+            logger.warning(f"Validation errors during profile creation: {err.messages}")
+            return{"error": err.messages}, "status_code": 400 # Bad Request
+
+        try:
+            existing_profile = profiles_collection.find_one({"role": validated_data['role']})
+            if existing_profile:
+                logger.warning(f"Profile with role '{validated_data['role']}' already exists.")
+                return{"error": "Profile with this role already exists."}, "status_code": 400 # Bad Request
+
+            result = profiles_collection.insert_one(validated_data)
+            if result.inserted_id:
+                logger.info(f"Profile created successfully with ID: {result.inserted_id}")
+                
+                return {"message": "Profile created successfully."}, 201  # Created
+            logger.error("Failed to create profile without exception.")
+            return{"error": "Failed to create profile."}, "status_code": 500  # Internal Server Error
+        except Exception as e:
+            logger.exception(f"Exception during profile creation: {e}")
+            return{"error": "An error occurred while creating the profile."}, "status_code": 500  # Internal Server Error
+
+    @staticmethod
+    def get_profile_by_role(role):
+        """
+        Retrieves a profile by its role.
+        Returns a dictionary with 'data' and 'status_code'.
+        """
+        try:
+            profile = profiles_collection.find_one({"role": role})
+            if profile:
+                serialized = serialize_profile(profile)
+                logger.info(f"Profile retrieved for role '{role}'.")
+                return{"profile": serialized}, "status_code": 200  # OK
+            logger.warning(f"Profile not found with role: {role}")
+            return{"profile": None}, "status_code": 404  # Not Found
+        except Exception as e:
+            logger.exception(f"Exception during fetching profile by role '{role}': {e}")
+            return{"profile": None}, "status_code": 500  # Internal Server Error
+
+    @staticmethod
+    def get_profiles(role=None):
+        """
+        Retrieves profiles by role or all profiles if no role is provided.
+        Returns a dictionary with 'data' and 'status_code'.
+        """
+        try:
+            if role:
+                profile_result = Profile.get_profile_by_role(role)
+                return profile_result
+            else:
+                profiles = list(profiles_collection.find())
+                serialized = serialize_profiles(profiles)
+                logger.info("All profiles retrieved successfully.")
+                return{"profiles": serialized}, "status_code": 200
+        except Exception as e:
+            logger.exception(f"Exception during fetching profiles: {e}")
+            return{"error": "Failed to fetch profiles."}, "status_code": 500  # Internal Server Error
+
+    @staticmethod
+    def update_profile(role, update_data):
+        """
+        Updates a profile's information based on the role.
+        Validates input data and updates the database.
+        Returns a dictionary with 'data' and 'status_code'.
+        """
+        if not update_data:
+            logger.warning("No update data provided for profile.")
+            return{"error": "No update data provided."}, "status_code": 400  # Bad Request
+
+        schema = UpdateProfileSchema()
+        try:
+            validated_data = schema.load(update_data)
+        except ValidationError as err:
+            logger.warning(f"Validation errors during profile update: {err.messages}")
+            return{"error": err.messages}, "status_code": 400  # Bad Request
+
+        try:
+            result = profiles_collection.update_one({"role": role}, {"$set": validated_data})
+            if result.modified_count > 0:
+                logger.info(f"Profile with role '{role}' updated successfully.")
+                return{"message": "Profile updated successfully."}, "status_code": 200
+            logger.warning(f"No changes made to profile with role '{role}'.")
+            return{"message": "No changes made to the profile."}, "status_code": 200
+        except Exception as e:
+            logger.exception(f"Exception during profile update: {e}")
+            return{"error": "Failed to update profile."}, "status_code": 500  # Internal Server Error
+
+    @staticmethod
+    def suspend_profile(role):
+        """
+        Suspends a profile by setting its 'suspended' field to True.
+        Also suspends all users with this role.
+        Returns a dictionary with 'data' and 'status_code'.
+        """
+        try:
+            result = profiles_collection.update_one({"role": role}, {"$set": {"suspended": True}})
+            if result.modified_count > 0:
+                logger.info(f"Profile with role '{role}' suspended successfully.")
+                # Suspend all users with this role
+                suspend_result = User.suspend_users_by_role(role)
+                if suspend_result['status_code'] == 200:
+                    return{"message": "Profile and associated users suspended successfully."}, "status_code": 200
+                logger.warning(f"Profile suspended but failed to suspend users with role '{role}'.")
+                return{"error": "Profile suspended but failed to suspend associated users."}, "status_code": 500
+            logger.warning(f"Profile with role '{role}' not found for suspension.")
+            return{"error": "Profile not found."}, "status_code": 404 # Not Found
+        except Exception as e:
+            logger.exception(f"Exception during suspending profile '{role}': {e}")
+            return{"error": "Failed to suspend profile."}, "status_code": 500  # Internal Server Error
+
+    @staticmethod
+    def reenable_profile(role):
+        """
+        Re-enables a profile by setting its 'suspended' field to False.
+        Also re-enables all users with this role.
+        Returns a dictionary with 'data' and 'status_code'.
+        """
+        try:
+            result = profiles_collection.update_one({"role": role}, {"$set": {"suspended": False}})
+            if result.modified_count > 0:
+                logger.info(f"Profile with role '{role}' re-enabled successfully.")
+                # Re-enable all users with this role
+                reenable_result = User.reenable_users_by_role(role)
+                if reenable_result['status_code'] == 200:
+                    return{"message": "Profile and associated users re-enabled successfully."}, "status_code": 200
+                logger.warning(f"Profile re-enabled but failed to re-enable users with role '{role}'.")
+                return{"error": "Profile re-enabled but failed to re-enable associated users."}, "status_code": 500
+            logger.warning(f"Profile with role '{role}' not found for re-enabling.")
+            return{"error": "Profile not found."}, "status_code": 404  # Not Found
+        except Exception as e:
+            logger.exception(f"Exception during re-enabling profile '{role}': {e}")
+            return{"error": "Failed to re-enable profile."}, "status_code": 500  # Internal Server Error
+
+    @staticmethod
+    def search_profiles(query):
+        """
+        Searches profiles by role or rights using a regex.
+        Returns a dictionary with 'data' and 'status_code'.
+        """
+        if not query:
+            logger.warning("Search query parameter is missing for profiles.")
+            return{"error": "Query parameter is required."}, "status_code": 400  # Bad Request
+        try:
+            cursor = profiles_collection.find({"$or": [
+                {"role": {"$regex": query, "$options": "i"}},
+                {"rights": {"$regex": query, "$options": "i"}}
+            ]})
+            serialized_profiles = serialize_profiles(cursor)
+            logger.info(f"Search completed for profiles with query: '{query}'")
+            return{"profiles": serialized_profiles}, "status_code": 200 # OK
+        except Exception as e:
+            logger.exception(f"Exception during searching profiles with query '{query}': {e}")
+            return{"error": "Failed to search profiles."}, "status_code": 500  # Internal Server Error
+
+
+
+# Contents of: .\review.py
+# backend/models/review_model.py
+
+from utils.db import db
+from bson import ObjectId
+from datetime import datetime
+from models.user import User
+
+reviews_collection = db['reviews']
+
+def serialize_review(review):
+    if not review:
+        return None
+    review['_id'] = str(review['_id'])
+    review['created_at'] = review['created_at'].isoformat() if review.get('created_at') else None
+    return review
+
+def serialize_reviews(reviews):
+    return [serialize_review(review) for review in reviews]
+
+class ReviewModel:
+    @staticmethod
+    def rate_and_review_agent(role, data):
+        """
+        Handles the logic for rating and reviewing an agent.
+        Validates input, checks user roles, and creates a review entry.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            # Validate the role
+            if role not in ['buyer', 'seller']:
+                return {"error": "Invalid role specified."}, 400
+
+            if not data:
+                return {"error": "No input data provided."}, 400
+
+            # Define required fields based on role
+            required_fields = ["agent_id", f"{role}_id", "rating"]
+            missing_fields = [field for field in required_fields if field not in data]
+            if missing_fields:
+                return {"error": f"Missing required fields: {', '.join(missing_fields)}."}, 400
+
+            # Extract reviewer_id based on role
+            reviewer_id = data.get(f"{role}_id")
+            reviewer_role = role
+
+            # Delegate to create_review_entry method
+            success, status = ReviewModel.create_review_entry({
+                "agent_id": data.get('agent_id'),
+                "reviewer_id": reviewer_id,
+                "reviewer_role": reviewer_role,
+                "rating": data.get('rating'),
+                "review": data.get('review', '')
+            })
+
+            if success:
+                return {"success": True}, status
+            else:
+                return {"success": False}, status
+
+        except Exception as e:
+            print(f"Error in ReviewModel.rate_and_review_agent: {e}")
+            return {"error": "An error occurred while processing the review."}, 500
+
+    @staticmethod
+    def create_review_entry(data):
+        """
+        Creates a review from either a buyer or a seller.
+        Returns a tuple (success: bool, status_code: int).
+        """
+        required_fields = ['agent_id', 'rating', 'reviewer_id', 'reviewer_role']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return False, 400  # Bad Request
+
+        rating = data.get('rating') 
+        if not isinstance(rating, (int, float)) or not (1 <= rating <= 5):
+            return False, 400  # Bad Request
+
+        # Validate agent existence
+        agent = UserModel.get_user_by_id(data['agent_id'])
+        if not agent or agent.get('role') != 'used_car_agent':
+            return False, 404  # Not Found
+
+        # Validate reviewer existence and role
+        reviewer = UserModel.get_user_by_id(data['reviewer_id'])
+        if not reviewer or reviewer.get('role') != data['reviewer_role']:
+            return False, 400  # Bad Request
+
+        review = {
+            "agent_id": data['agent_id'],
+            "reviewer_id": data['reviewer_id'],
+            "reviewer_role": data['reviewer_role'],  # 'buyer' or 'seller'
+            "rating": rating,
+            "review": data.get('review', ''),
+            "created_at": datetime.utcnow()
+        }
+
+        success = ReviewModel.create_review(review)
+        return (success, 201) if success else (False, 500)  # Created or Internal Server Error
+
+    @staticmethod
+    def create_review(review_data):
+        """
+        Inserts a new review into the reviews collection.
+        Returns True if successful, else False.
+        """
+        try:
+            result = reviews_collection.insert_one(review_data)
+            return result.inserted_id is not None
+        except Exception as e:
+            print(f"Error creating review: {e}")
+            return False
+
+    @staticmethod
+    def get_reviews_and_average(agent_id):
+        """
+        Retrieves all reviews and calculates the average rating for a specific agent.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            # Verify agent existence
+            agent = UserModel.get_user_by_id(agent_id)
+            if not agent or agent.get('role') != 'used_car_agent':
+                return {"error": "Agent not found."}, 404  # Not Found
+
+            reviews = ReviewModel.get_reviews_for_agent(agent_id)
+            average_rating = ReviewModel.get_average_rating(agent_id)
+            return {"reviews": reviews, "average_rating": average_rating}, 200
+
+        except Exception as e:
+            print(f"Error in ReviewModel.get_reviews_and_average: {e}")
+            return {"error": "An error occurred while retrieving reviews."}, 500
+
+    @staticmethod
+    def get_reviews_for_agent(agent_id):
+        """
+        Retrieves all reviews associated with a specific agent.
+        Returns a list of review dictionaries.
+        """
+        try:
+            reviews = reviews_collection.find({"agent_id": agent_id})
+            return serialize_reviews(reviews)
+        except Exception as e:
+            print(f"Error fetching reviews for agent {agent_id}: {e}")
+            return []
+
+    @staticmethod
+    def get_average_rating(agent_id):
+        """
+        Calculates the average rating for a specific agent.
+        Returns the average rating as a float rounded to 2 decimal places, or None if no reviews exist.
+        """
+        try:
+            pipeline = [
+                {"$match": {"agent_id": agent_id}},
+                {"$group": {"_id": "$agent_id", "average_rating": {"$avg": "$rating"}}}
+            ]
+            result = list(reviews_collection.aggregate(pipeline))
+            if result:
+                return round(result[0]['average_rating'], 2)
+            return None
+        except Exception as e:
+            print(f"Error calculating average rating for agent {agent_id}: {e}")
+            return None
+
+
+
+# Contents of: .\seller_metrics.py
+# backend/models/seller_metrics_model.py
+
+from utils.db import db
+from bson import ObjectId
+from datetime import datetime
+import logging
+
+# Configure Logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+seller_metrics_collection = db['seller_metrics']
+
+def serialize_metrics(metrics):
+    if not metrics:
+        return None
+    metrics['_id'] = str(metrics['_id'])
+    return metrics
+
+def serialize_metrics_list(metrics_list):
+    return [serialize_metrics(metrics) for metrics in metrics_list]
+
+class SellerMetricsModel:
+    @staticmethod
+    def track_view(data):
+        """
+        Increments the view count for a listing.
+        Expects data to contain 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
+        """
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            logger.warning("Missing 'listing_id' in request data.")
+            return {"error": "Missing 'listing_id'."}, 400  # Bad Request
+
+        try:
+            result = seller_metrics_collection.update_one(
+                {"listing_id": listing_id},
+                {"$inc": {"views": 1}},
+                upsert=True
+            )
+            if result.modified_count > 0 or result.upserted_id is not None:
+                logger.info(f"View tracked for listing_id: {listing_id}")
+                return {"success": True}, 200
+            else:
+                logger.warning(f"Failed to track view for listing_id: {listing_id}")
+                return {"success": False}, 500  # Internal Server Error
+        except Exception as e:
+            logger.exception(f"Error tracking view for listing_id {listing_id}: {e}")
+            return {"success": False, "error": "Failed to track view."}, 500
+
+    @staticmethod
+    def track_shortlist(data):
+        """
+        Increments the shortlist count for a listing.
+        Expects data to contain 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
+        """
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            logger.warning("Missing 'listing_id' in request data.")
+            return {"error": "Missing 'listing_id'."}, 400  # Bad Request
+
+        try:
+            result = seller_metrics_collection.update_one(
+                {"listing_id": listing_id},
+                {"$inc": {"shortlists": 1}},
+                upsert=True
+            )
+            if result.modified_count > 0 or result.upserted_id is not None:
+                logger.info(f"Shortlist tracked for listing_id: {listing_id}")
+                return {"success": True}, 200
+            else:
+                logger.warning(f"Failed to track shortlist for listing_id: {listing_id}")
+                return {"success": False}, 500  # Internal Server Error
+        except Exception as e:
+            logger.exception(f"Error tracking shortlist for listing_id {listing_id}: {e}")
+            return {"success": False, "error": "Failed to track shortlist."}, 500
+
+    @staticmethod
+    def get_metrics(listing_id):
+        """
+        Retrieves metrics for a specific listing.
+        Returns a tuple of (response_dict, status_code).
+        """
+        if not listing_id:
+            logger.warning("Missing 'listing_id' parameter.")
+            return {"error": "Missing 'listing_id' parameter."}, 400  # Bad Request
+
+        try:
+            metrics = seller_metrics_collection.find_one({"listing_id": listing_id})
+            if metrics:
+                serialized = serialize_metrics(metrics)
+                logger.info(f"Metrics retrieved for listing_id: {listing_id}")
+                return {"metrics": serialized}, 200
+            else:
+                logger.warning(f"No metrics found for listing_id: {listing_id}")
+                return {"error": "Metrics not found."}, 404  # Not Found
+        except Exception as e:
+            logger.exception(f"Error retrieving metrics for listing_id {listing_id}: {e}")
+            return {"error": "Failed to retrieve metrics."}, 500
+
+
+
+# Contents of: .\used_car_listing.py
+# backend/models/used_car_listing_model.py
+
+import logging
+from utils.db import db
+from bson import ObjectId
+from bson.errors import InvalidId
+from datetime import datetime
+from marshmallow import Schema, fields, ValidationError
+
+# Configure Logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+used_car_collection = db['used_car_listings']
+
+def serialize_listing(listing):
+    if not listing:
+        return None
+    listing['_id'] = str(listing['_id'])
+    listing['seller_id'] = str(listing['seller_id']) if listing.get('seller_id') else None
+    listing['created_at'] = listing['created_at'].isoformat() if listing.get('created_at') else None
+    return listing
+
+def serialize_listings(listings):
+    return [serialize_listing(listing) for listing in listings]
+
+class CreateListingSchema(Schema):
+    seller_id = fields.Str(required=True)
+    make = fields.Str(required=True)
+    model = fields.Str(required=True)
+    year = fields.Int(required=True)
+    price = fields.Float(required=True)
+    # Add other necessary fields here
+
+class UpdateListingSchema(Schema):
+    make = fields.Str()
+    model = fields.Str()
+    year = fields.Int()
+    price = fields.Float()
+    # Add other fields that can be updated
+
+class UsedCarListing:
+    @staticmethod
+    def create_listing(listing_data):
+        """
+        Creates a new used car listing.
+        Validates input data and inserts into the database.
+        Returns a tuple of (response_dict, status_code).
+        """
+        schema = CreateListingSchema()
+        try:
+            validated_data = schema.load(listing_data)
+        except ValidationError as err:
+            logger.warning(f"Validation errors during listing creation: {err.messages}")
+            return {"error": err.messages}, 400  # Bad Request
+
+        validated_data['created_at'] = datetime.utcnow()
+        try:
+            result = used_car_collection.insert_one(validated_data)
+            if result.inserted_id:
+                logger.info(f"Listing created successfully with ID: {result.inserted_id}")
+                return {
+                    "message": "Listing created successfully.",
+                    "listing_id": str(result.inserted_id)
+                }, 201  # Created
+            logger.error("Failed to create listing without exception.")
+            return {"error": "Failed to create listing."}, 500  # Internal Server Error
+        except Exception as e:
+            logger.exception(f"Exception during listing creation: {e}")
+            return {"error": "An error occurred while creating the listing."}, 500  # Internal Server Error
+
+    @staticmethod
+    def get_all_listings():
+        """
+        Retrieves all used car listings.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            listings = used_car_collection.find()
+            serialized = serialize_listings(listings)
+            logger.info("Retrieved all listings successfully.")
+            return {"listings": serialized}, 200
+        except Exception as e:
+            logger.exception(f"Exception during retrieving all listings: {e}")
+            return {"error": "Failed to retrieve listings."}, 500  # Internal Server Error
+
+    @staticmethod
+    def get_listing_by_id(listing_id):
+        """
+        Retrieves a listing by its listing_id.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            oid = ObjectId(listing_id)
+        except InvalidId:
+            logger.warning(f"Invalid listing_id format: {listing_id}")
+            return {"error": "Invalid listing_id."}, 400  # Bad Request
+
+        try:
+            listing = used_car_collection.find_one({"_id": oid})
+            if listing:
+                serialized = serialize_listing(listing)
+                logger.info(f"Retrieved listing with ID: {listing_id}")
+                return {"listing": serialized}, 200
+            logger.warning(f"Listing not found with ID: {listing_id}")
+            return {"error": "Listing not found."}, 404  # Not Found
+        except Exception as e:
+            logger.exception(f"Exception during retrieving listing by ID: {e}")
+            return {"error": "Failed to retrieve listing."}, 500  # Internal Server Error
+
+    @staticmethod
+    def update_listing(listing_id, update_data):
+        """
+        Updates a listing's information based on its listing_id.
+        Validates input data and updates the database.
+        Returns a tuple of (response_dict, status_code).
+        """
+        if not update_data:
+            logger.warning("No update data provided.")
+            return {"error": "No update data provided."}, 400  # Bad Request
+
+        schema = UpdateListingSchema()
+        try:
+            validated_data = schema.load(update_data)
+        except ValidationError as err:
+            logger.warning(f"Validation errors during listing update: {err.messages}")
+            return {"error": err.messages}, 400  # Bad Request
+
+        try:
+            oid = ObjectId(listing_id)
+        except InvalidId:
+            logger.warning(f"Invalid listing_id format: {listing_id}")
+            return {"error": "Invalid listing_id."}, 400  # Bad Request
+
+        try:
+            result = used_car_collection.update_one(
+                {"_id": oid},
+                {"$set": validated_data}
+            )
+            if result.modified_count > 0:
+                logger.info(f"Listing with ID {listing_id} updated successfully.")
+                return {"message": "Listing updated successfully."}, 200
+            logger.warning(f"No changes made to listing with ID: {listing_id}")
+            return {"message": "No changes made to the listing."}, 200
+        except Exception as e:
+            logger.exception(f"Exception during listing update: {e}")
+            return {"error": "Failed to update listing."}, 500  # Internal Server Error
+
+    @staticmethod
+    def delete_listing(listing_id):
+        """
+        Deletes a listing based on its listing_id.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            oid = ObjectId(listing_id)
+        except InvalidId:
+            logger.warning(f"Invalid listing_id format: {listing_id}")
+            return {"error": "Invalid listing_id."}, 400  # Bad Request
+
+        try:
+            result = used_car_collection.delete_one({"_id": oid})
+            if result.deleted_count > 0:
+                logger.info(f"Listing with ID {listing_id} deleted successfully.")
+                return {"message": "Listing deleted successfully."}, 200
+            logger.warning(f"Listing not found for deletion with ID: {listing_id}")
+            return {"error": "Listing not found."}, 404  # Not Found
+        except Exception as e:
+            logger.exception(f"Exception during listing deletion: {e}")
+            return {"error": "Failed to delete listing."}, 500  # Internal Server Error
+
+    @staticmethod
+    def search_listings(query):
+        """
+        Searches listings based on a query string matching make, model, or year.
+        Validates input and performs the search.
+        Returns a tuple of (response_dict, status_code).
+        """
+        if not query:
+            logger.warning("Search query parameter is missing.")
+            return {"error": "Query parameter is required."}, 400  # Bad Request
+
+        try:
+            listings = used_car_collection.find({
+                "$or": [
+                    {"make": {"$regex": query, "$options": "i"}},
+                    {"model": {"$regex": query, "$options": "i"}},
+                    {"year": {"$regex": query, "$options": "i"}}
+                ]
+            })
+            serialized = serialize_listings(listings)
+            logger.info(f"Search completed for query: {query}")
+            return {"listings": serialized}, 200
+        except Exception as e:
+            logger.exception(f"Exception during searching listings: {e}")
+            return {"error": "Failed to search listings."}, 500  # Internal Server Error
+
+    @staticmethod
+    def search_cars(query):
+        """
+        Wrapper method for controller to search cars.
+        """
+        return UsedCarListingModel.search_listings(query)
+
+    @staticmethod
+    def search_listings_with_query(mongo_query):
+        """
+        Searches listings based on a pre-constructed MongoDB query.
+        Returns a tuple of (response_dict, status_code).
+        """
+        try:
+            listings = used_car_collection.find(mongo_query)
+            serialized = serialize_listings(listings)
+            logger.info(f"Search completed for MongoDB query: {mongo_query}")
+            return {"listings": serialized}, 200
+        except Exception as e:
+            logger.exception(f"Exception during advanced searching listings: {e}")
+            return {"error": "Failed to search listings."}, 500  # Internal Server Error
+
+
+
+# Contents of: .\user.py
+# backend/models/user_model.py
+
+import logging
+from utils.db import db
+from bson import ObjectId
+from bson.errors import InvalidId
+from marshmallow import Schema, fields, ValidationError
+
+# Configure Logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+users_collection = db['users']
+
+
+def serialize_user(user):
+    if not user:
+        return None
+    user['_id'] = str(user['_id'])
+    return user
+
+
+def serialize_users(users):
+    return [serialize_user(user) for user in users]
+
+
+class CreateUserSchema(Schema):
+    username = fields.Str(required=True)
+    password = fields.Str(required=True)
+    email = fields.Email(required=True)
+    role = fields.Str(required=True)
+    # Add other necessary fields here
+
+
+class UpdateUserSchema(Schema):
+    password = fields.Str()
+    email = fields.Email()
+    role = fields.Str()
+    # Add other fields that can be updated
+
+
+class User:
+    @staticmethod
+    def authenticate_user(data):
+        """
+        Authenticates a user based on username and password.
+        Returns a tuple of (response_data, status_code).
+        """
+        try:
+            username = data.get('username')
+            password = data.get('password')
+
+            if not username or not password:
+                logger.warning("Username or password missing.")
+                return {"error": "Username and password are required."}, 400  # Bad Request
+
+            user = users_collection.find_one({"username": username})
+            if not user:
+                logger.warning(f"User '{username}' not found.")
+                return {"error": "Invalid username or password."}, 401  # Unauthorized
+
+            if user.get('suspended'):
+                logger.warning(f"User '{username}' account is suspended.")
+                return {"error": "Account is suspended."}, 403  # Forbidden
+
+            stored_password = user.get('password')
+            if stored_password != password:
+                logger.warning(f"Incorrect password for user '{username}'.")
+                return {"error": "Invalid username or password."}, 401  # Unauthorized
+
+            # Fetch profile data
+            from models.profile import Profile  # Import here to avoid circular imports
+            profile_result = Profile.get_profile_by_role(user.get('role'))
+            if profile_result['status_code'] != 200:
+                logger.error(f"Profile for role '{user.get('role')}' not found.")
+                return {"error": "Profile data not found."}, 500  # Internal Server Error
+
+            login_data = {
+                "user": serialize_user(user),
+                "profile": profile_result['data']['profile']
+            }
+            logger.info(f"User '{username}' authenticated successfully.")
+            return login_data, 200  # OK
+
+        except Exception as e:
+            logger.exception(f"Exception during user authentication: {e}")
+            return {"error": "Internal server error."}, 500  # Internal Server Error
+
+    @staticmethod
+    def logout_user():
+        """
+        Handles user logout.
+        Returns a tuple of (response_data, status_code).
+        """
+        # Implement logout logic as needed (e.g., session termination)
+        logger.info("User logged out successfully.")
+        return {"message": "Logout successful."}, 200  # OK
+
+    @staticmethod
+    def create_user(user_data):
+        """
+        Creates a new user account.
+        Validates input data and inserts into the database.
+        Returns a tuple of (response_data, status_code).
+        """
+        schema = CreateUserSchema()
+        try:
+            validated_data = schema.load(user_data)
+        except ValidationError as err:
+            logger.warning(f"Validation errors during user creation: {err.messages}")
+            return {"error": err.messages}, 400  # Bad Request
+
+        try:
+            existing_user = users_collection.find_one({"username": validated_data['username']})
+            if existing_user:
+                logger.warning(f"Username '{validated_data['username']}' already exists.")
+                return {"error": "Username already exists."}, 400  # Bad Request
+
+            result = users_collection.insert_one(validated_data)
+            if result.inserted_id:
+                logger.info(f"User created successfully with ID: {result.inserted_id}")
+                return {"message": "User created successfully."}, 201  # Created
+            logger.error("Failed to create user without exception.")
+            return {"error": "Failed to create user."}, 500  # Internal Server Error
+        except Exception as e:
+            logger.exception(f"Exception during user creation: {e}")
+            return {"error": "An error occurred while creating the user."}, 500  # Internal Server Error
+
+    @staticmethod
+    def get_user_by_username(username=None):
+        """
+        Retrieves a user by username or all users if no username is provided.
+        Returns a tuple of (response_data, status_code).
+        """
+        try:
+            if username:
+                # If a specific username is provided, return that user
+                user = users_collection.find_one({"username": username})
+                serialized = serialize_user(user)
+                if serialized:
+                    return {"user": serialized}, 200
+                logger.warning(f"User not found with username: {username}")
+                return {"error": "User not found."}, 404  # Not Found
+            else:
+                # If no username is provided, return all users
+                users = list(users_collection.find())
+                serialized = serialize_users(users)
+                return {"users": serialized}, 200
+        except Exception as e:
+            logger.exception(f"Exception during fetching user(s): {e}")
+            return {"error": "Failed to fetch user(s)."}, 500  # Internal Server Error
+
+    @staticmethod
+    def filter_users(username=None, email=None, role=None, status=None):
+        """
+        Filters users based on the provided criteria.
+        Returns a tuple of (response_data, status_code).
+        """
+        try:
+            query = {}
+            if username:
+                query["username"] = {"$regex": username, "$options": "i"}  # Case-insensitive partial match
+            if email:
+                query["email"] = {"$regex": email, "$options": "i"}
+            if role:
+                query["role"] = role
+            if status:
+                # Assuming status can be 'active' or 'suspended'
+                if status.lower() == 'active':
+                    query["suspended"] = False
+                elif status.lower() == 'suspended':
+                    query["suspended"] = True
+
+            users = users_collection.find(query)
+            serialized_users = serialize_users(users)
+            logger.info(f"Filtered users based on criteria: {query}")
+            return {"users": serialized_users}, 200
+        except Exception as e:
+            logger.exception(f"Exception during filtering users: {e}")
+            return {"error": "Failed to filter users."}, 500  # Internal Server Error
+
+    @staticmethod
+    def get_user_by_id(user_id):
+        """
+        Retrieves a user by their ObjectId.
+        Returns a tuple of (response_data, status_code).
+        """
+        try:
+            oid = ObjectId(user_id)
+        except InvalidId:
+            logger.warning(f"Invalid user_id format: {user_id}")
+            return {"error": "Invalid user_id."}, 400  # Bad Request
+
+        try:
+            user = users_collection.find_one({"_id": oid})
+            if user:
+                serialized = serialize_user(user)
+                logger.info(f"Retrieved user with ID: {user_id}")
+                return {"user": serialized}, 200
+            logger.warning(f"User not found with ID: {user_id}")
+            return {"error": "User not found."}, 404  # Not Found
+        except Exception as e:
+            logger.exception(f"Exception during fetching user by ID: {e}")
+            return {"error": "Failed to fetch user."}, 500  # Internal Server Error
+
+    @staticmethod
+    def update_user(username, update_data):
+        """
+        Updates a user's information based on their username.
+        Validates input data and updates the database.
+        Returns a tuple of (response_data, status_code).
+        """
+        if not update_data:
+            logger.warning("No update data provided.")
+            return {"error": "No update data provided."}, 400  # Bad Request
+
+        schema = UpdateUserSchema()
+        try:
+            validated_data = schema.load(update_data)
+        except ValidationError as err:
+            logger.warning(f"Validation errors during user update: {err.messages}")
+            return {"error": err.messages}, 400  # Bad Request
+
+        try:
+            result = users_collection.update_one({"username": username}, {"$set": validated_data})
+            if result.modified_count > 0:
+                logger.info(f"User '{username}' updated successfully.")
+                return {"message": "User updated successfully."}, 200
+            logger.warning(f"No changes made to user '{username}'.")
+            return {"message": "No changes made to the user."}, 200
+        except Exception as e:
+            logger.exception(f"Exception during user update: {e}")
+            return {"error": "Failed to update user."}, 500  # Internal Server Error
+
+    @staticmethod
+    def suspend_user(username):
+        """
+        Suspends a user by setting their 'suspended' field to True.
+        Returns a tuple of (response_data, status_code).
+        """
+        try:
+            result = users_collection.update_one({"username": username}, {"$set": {"suspended": True}})
+            if result.modified_count > 0:
+                logger.info(f"User '{username}' suspended successfully.")
+                return {"message": "User suspended successfully."}, 200
+            logger.warning(f"No changes made to user '{username}' during suspension.")
+            return {"message": "No changes made to the user."}, 200
+        except Exception as e:
+            logger.exception(f"Exception during suspending user '{username}': {e}")
+            return {"error": "Failed to suspend user."}, 500  # Internal Server Error
+
+    @staticmethod
+    def reenable_user(username):
+        """
+        Re-enables a user by setting their 'suspended' field to False.
+        Returns a tuple of (response_data, status_code).
+        """
+        try:
+            result = users_collection.update_one({"username": username}, {"$set": {"suspended": False}})
+            if result.modified_count > 0:
+                logger.info(f"User '{username}' re-enabled successfully.")
+                return {"message": "User re-enabled successfully."}, 200
+            logger.warning(f"No changes made to user '{username}' during re-enabling.")
+            return {"message": "No changes made to the user."}, 200
+        except Exception as e:
+            logger.exception(f"Exception during re-enabling user '{username}': {e}")
+            return {"error": "Failed to re-enable user."}, 500  # Internal Server Error
+
+    @staticmethod
+    def suspend_users_by_role(role):
+        """
+        Suspends all users with the specified role.
+        Returns a tuple of (response_data, status_code).
+        """
+        try:
+            result = users_collection.update_many({"role": role}, {"$set": {"suspended": True}})
+            if result.modified_count > 0:
+                logger.info(f"{result.modified_count} user(s) with role '{role}' suspended successfully.")
+                return {"message": f"{result.modified_count} user(s) suspended successfully."}, 200
+            logger.warning(f"No users found with role '{role}' to suspend.")
+            return {"message": "No users found with the specified role."}, 200
+        except Exception as e:
+            logger.exception(f"Exception during suspending users by role '{role}': {e}")
+            return {"error": "Failed to suspend users by role."}, 500  # Internal Server Error
+
+    @staticmethod
+    def reenable_users_by_role(role):
+        """
+        Re-enables all users with the specified role.
+        Returns a tuple of (response_data, status_code).
+        """
+        try:
+            result = users_collection.update_many({"role": role}, {"$set": {"suspended": False}})
+            if result.modified_count > 0:
+                logger.info(f"{result.modified_count} user(s) with role '{role}' re-enabled successfully.")
+                return {"message": f"{result.modified_count} user(s) re-enabled successfully."}, 200
+            logger.warning(f"No users found with role '{role}' to re-enable.")
+            return {"message": "No users found with the specified role."}, 200
+        except Exception as e:
+            logger.exception(f"Exception during re-enabling users by role '{role}': {e}")
+            return {"error": "Failed to re-enable users by role."}, 500  # Internal Server Error
+
+    @staticmethod
+    def search_users(query):
+        """
+        Searches users by username or email using a regex.
+        Returns a tuple of (response_data, status_code).
+        """
+        if not query:
+            logger.warning("Search query parameter is missing.")
+            return {"error": "Query parameter is required."}, 400  # Bad Request
+        try:
+            cursor = users_collection.find({"$or": [
+                {"username": {"$regex": query, "$options": "i"}},
+                {"email": {"$regex": query, "$options": "i"}}
+            ]})
+            serialized_users = serialize_users(cursor)
+            logger.info(f"Search completed for users with query: '{query}'")
+            return {"users": serialized_users}, 200  # OK
+        except Exception as e:
+            logger.exception(f"Exception during searching users with query '{query}': {e}")
+            return {"error": "Failed to search users."}, 500  # Internal Server Error
+
+
+
+# Contents of: .\__init__.py
+

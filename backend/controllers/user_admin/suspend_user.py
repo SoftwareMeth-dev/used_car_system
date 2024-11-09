@@ -15,9 +15,9 @@ class SuspendUserController:
     def suspend_user(self, username):
         """
         Endpoint to suspend a user account.
-        Delegates processing to UserModel.
+        Delegates processing to User.
         """
-        response, status_code = UserModel.suspend_user(username)
+        response, status_code = User.suspend_user(username)
         return jsonify(response), status_code
 
 # Instantiate the controller

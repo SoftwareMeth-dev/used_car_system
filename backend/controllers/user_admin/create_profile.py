@@ -15,10 +15,12 @@ class CreateProfileController:
     def create_profile(self):
         """
         Endpoint to create a new user profile.
-        Delegates processing to ProfileModel.
+        Delegates processing to Profile.
         """
-        data = request.get_json()
-        response, status_code = ProfileModel.create_profile(data)
+        data = request.get_json() 
+        response, status_code = Profile.create_profile(data)
+        print(response)
+        print(status_code)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

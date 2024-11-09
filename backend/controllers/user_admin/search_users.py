@@ -15,10 +15,10 @@ class SearchUsersController:
     def search_users(self):
         """
         Endpoint to search user accounts based on a query matching username or email.
-        Delegates processing to UserModel.
+        Delegates processing to User.
         """
         query = request.args.get('query')
-        response, status_code = UserModel.search_users(query)
+        response, status_code = User.search_users(query)
         return jsonify(response), status_code
 
 # Instantiate the controller

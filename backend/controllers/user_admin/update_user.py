@@ -15,10 +15,10 @@ class UpdateUserController:
     def update_user(self, username):
         """
         Endpoint to update a user account based on username.
-        Delegates processing to UserModel.
+        Delegates processing to User.
         """
         data = request.get_json()
-        response, status_code = UserModel.update_user(username, data)
+        response, status_code = User.update_user(username, data)
         return jsonify(response), status_code
 
 # Instantiate the controller
