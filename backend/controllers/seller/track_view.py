@@ -1,7 +1,7 @@
 # backend/controllers/seller/track_view_controller.py
 
 from flask import Blueprint, request, jsonify
-from models.seller_metrics import SellerMetricsModel
+from models.seller_metrics import SellerMetrics
 
 track_view_bp = Blueprint('track_view', __name__, url_prefix='/api/seller')
 
@@ -18,7 +18,7 @@ class TrackViewController:
         Delegates processing to SellerMetricsModel.
         """
         data = request.get_json()
-        response, status_code = SellerMetricsModel.track_view(data)
+        response, status_code = SellerMetrics.track_view(data)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

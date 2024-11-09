@@ -1,7 +1,7 @@
 # backend/controllers/review/view_reviews_controller.py
 
 from flask import Blueprint, jsonify, request
-from models.review import ReviewModel
+from models.review import Review
 
 view_reviews_bp = Blueprint('view_reviews', __name__, url_prefix='/api')
 
@@ -22,7 +22,7 @@ class ViewReviewsController:
         Endpoint for used car agents to view their reviews and average ratings.
         Delegates all processing to the ReviewModel.
         """
-        response, status_code = ReviewModel.get_reviews_and_average(agent_id)
+        response, status_code = Review.get_reviews_and_average(agent_id)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

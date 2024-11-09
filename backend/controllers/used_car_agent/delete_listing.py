@@ -17,7 +17,7 @@ class DeleteListingController:
         Endpoint to delete a used car listing by its listing_id.
         Delegates processing to UsedCarListingModel.
         """
-        response, status_code = UsedCarListingModel.delete_listing(listing_id)
+        response, status_code = UsedCarListing.delete_listing(listing_id)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

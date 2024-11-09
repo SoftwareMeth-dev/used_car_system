@@ -17,7 +17,7 @@ def serialize_review(review):
 def serialize_reviews(reviews):
     return [serialize_review(review) for review in reviews]
 
-class ReviewModel:
+class Review:
     @staticmethod
     def rate_and_review_agent(role, data):
         """
@@ -44,7 +44,7 @@ class ReviewModel:
             reviewer_role = role
 
             # Delegate to create_review_entry method
-            success, status = ReviewModel.create_review_entry({
+            success, status = Review.create_review_entry({
                 "agent_id": data.get('agent_id'),
                 "reviewer_id": reviewer_id,
                 "reviewer_role": reviewer_role,
@@ -58,7 +58,7 @@ class ReviewModel:
                 return {"success": False}, status
 
         except Exception as e:
-            print(f"Error in ReviewModel.rate_and_review_agent: {e}")
+            print(f"Error in Review.rate_and_review_agent: {e}")
             return {"error": "An error occurred while processing the review."}, 500
 
     @staticmethod
@@ -77,13 +77,13 @@ class ReviewModel:
             return False, 400  # Bad Request
 
         # Validate agent existence
-        agent = UserModel.get_user_by_id(data['agent_id'])
-        if not agent or agent.get('role') != 'used_car_agent':
+        agent = User.get_user_by_id(data['agent_id'])
+        if not agent:
             return False, 404  # Not Found
 
         # Validate reviewer existence and role
-        reviewer = UserModel.get_user_by_id(data['reviewer_id'])
-        if not reviewer or reviewer.get('role') != data['reviewer_role']:
+        reviewer = User.get_user_by_id(data['reviewer_id'])
+        if not reviewer:
             return False, 400  # Bad Request
 
         review = {
@@ -95,7 +95,7 @@ class ReviewModel:
             "created_at": datetime.utcnow()
         }
 
-        success = ReviewModel.create_review(review)
+        success = Review.create_review(review)
         return (success, 201) if success else (False, 500)  # Created or Internal Server Error
 
     @staticmethod
@@ -119,16 +119,16 @@ class ReviewModel:
         """
         try:
             # Verify agent existence
-            agent = UserModel.get_user_by_id(agent_id)
-            if not agent or agent.get('role') != 'used_car_agent':
+            agent = User.get_user_by_id(agent_id)
+            if not agent:
                 return {"error": "Agent not found."}, 404  # Not Found
 
-            reviews = ReviewModel.get_reviews_for_agent(agent_id)
-            average_rating = ReviewModel.get_average_rating(agent_id)
+            reviews = Review.get_reviews_for_agent(agent_id)
+            average_rating = Review.get_average_rating(agent_id)
             return {"reviews": reviews, "average_rating": average_rating}, 200
 
         except Exception as e:
-            print(f"Error in ReviewModel.get_reviews_and_average: {e}")
+            print(f"Error in Review.get_reviews_and_average: {e}")
             return {"error": "An error occurred while retrieving reviews."}, 500
 
     @staticmethod

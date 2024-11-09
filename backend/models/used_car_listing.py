@@ -23,6 +23,7 @@ def serialize_listing(listing):
     listing['_id'] = str(listing['_id'])
     listing['seller_id'] = str(listing['seller_id']) if listing.get('seller_id') else None
     listing['created_at'] = listing['created_at'].isoformat() if listing.get('created_at') else None
+    print(listing)
     return listing
 
 def serialize_listings(listings):
@@ -191,8 +192,8 @@ class UsedCarListing:
                     {"model": {"$regex": query, "$options": "i"}},
                     {"year": {"$regex": query, "$options": "i"}}
                 ]
-            })
-            serialized = serialize_listings(listings)
+            }) 
+            serialized = serialize_listings(listings) 
             logger.info(f"Search completed for query: {query}")
             return {"listings": serialized}, 200
         except Exception as e:
@@ -204,7 +205,7 @@ class UsedCarListing:
         """
         Wrapper method for controller to search cars.
         """
-        return UsedCarListingModel.search_listings(query)
+        return UsedCarListing.search_listings(query)
 
     @staticmethod
     def search_listings_with_query(mongo_query):

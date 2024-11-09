@@ -18,7 +18,7 @@ class UpdateListingController:
         Delegates processing to UsedCarListingModel.
         """
         data = request.get_json()
-        response, status_code = UsedCarListingModel.update_listing(listing_id, data)
+        response, status_code = UsedCarListing.update_listing(listing_id, data)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

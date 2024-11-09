@@ -18,7 +18,7 @@ class CreateListingController:
         Delegates processing to UsedCarListingModel.
         """
         data = request.get_json()
-        response, status_code = UsedCarListingModel.create_listing(data)
+        response, status_code = UsedCarListing.create_listing(data)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

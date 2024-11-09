@@ -1,7 +1,7 @@
 # backend/controllers/buyer/loan_calculator_controller.py
 
 from flask import Blueprint, request, jsonify
-from models.loan_calculator import LoanCalculatorModel
+from models.loan_calculator import LoanCalculator
 
 loan_calculator_bp = Blueprint('loan_calculator', __name__, url_prefix='/api/buyer')
 
@@ -14,7 +14,7 @@ class LoanCalculatorController:
 
     def loan_calculator(self):
         data = request.get_json()
-        response, status_code = LoanCalculatorModel.calculate_loan(data)
+        response, status_code = LoanCalculator.calculate_loan(data)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

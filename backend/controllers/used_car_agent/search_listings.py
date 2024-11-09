@@ -18,7 +18,7 @@ class SearchListingsController:
         Delegates processing to UsedCarListingModel.
         """
         query = request.args.get('query')
-        response, status_code = UsedCarListingModel.search_listings(query)
+        response, status_code = UsedCarListing.search_listings(query) 
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

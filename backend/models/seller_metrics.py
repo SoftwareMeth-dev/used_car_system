@@ -24,7 +24,7 @@ def serialize_metrics(metrics):
 def serialize_metrics_list(metrics_list):
     return [serialize_metrics(metrics) for metrics in metrics_list]
 
-class SellerMetricsModel:
+class SellerMetrics:
     @staticmethod
     def track_view(data):
         """

@@ -1,7 +1,7 @@
 # backend/controllers/review/rate_review_agent_controller.py
 
 from flask import Blueprint, request, jsonify
-from models.review import ReviewModel
+from models.review import Review
 
 rate_review_agent_bp = Blueprint('rate_review_agent', __name__, url_prefix='/api')
 
@@ -23,7 +23,7 @@ class RateReviewAgentController:
         Delegates all processing to the ReviewModel.
         """
         data = request.get_json()
-        response, status_code = ReviewModel.rate_and_review_agent(role, data)
+        response, status_code = Review.rate_and_review_agent(role, data)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

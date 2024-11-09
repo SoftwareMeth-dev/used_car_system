@@ -1,7 +1,7 @@
 # backend/controllers/seller/get_metrics_controller.py
 
 from flask import Blueprint, jsonify, request
-from models.seller_metrics import SellerMetricsModel
+from models.seller_metrics import SellerMetrics
 
 get_metrics_bp = Blueprint('get_metrics', __name__, url_prefix='/api/seller')
 
@@ -17,7 +17,7 @@ class GetMetricsController:
         Endpoint to retrieve metrics for a specific listing.
         Delegates processing to SellerMetricsModel.
         """
-        response, status_code = SellerMetricsModel.get_metrics(listing_id)
+        response, status_code = SellerMetrics.get_metrics(listing_id)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes
