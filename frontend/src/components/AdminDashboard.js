@@ -30,11 +30,17 @@ import {
   TablePagination,
   Snackbar,
   Alert,
+  Card,
+  CardActionArea,
+  CardContent,
+  Grid,
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import config from '../config';
-
+import HomeIcon from '@mui/icons-material/Home';
+import PeopleIcon from '@mui/icons-material/People';
+import PersonIcon from '@mui/icons-material/Person';
 // Define the width of the sidebar drawer
 const drawerWidth = 240;
 
@@ -77,7 +83,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
 
   // State for Sidebar Navigation
-  const [currentView, setCurrentView] = useState('users'); // 'users' or 'profiles'
+  const [currentView, setCurrentView] = useState('landing'); // 'landing', 'users', or 'profiles'
 
   // Snackbar state
   const [snackbar, setSnackbar] = useState({
@@ -138,6 +144,22 @@ const AdminDashboard = () => {
   const [openReenableProfile, setOpenReenableProfile] = useState(false);
   const [profileToReenable, setProfileToReenable] = useState(null);
 
+  // Retrieve Admin Username from localStorage
+  const getUsername = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const parsedUser = JSON.parse(user);
+        return parsedUser.username || 'Admin';
+      } catch (e) {
+        return 'Admin';
+      }
+    }
+    return 'Admin';
+  };
+
+  const username = getUsername();
+
   // Handle Sidebar Navigation
   const handleNavigation = (view) => {
     setCurrentView(view);
@@ -175,13 +197,23 @@ const AdminDashboard = () => {
     }
   };
 
-  // Fetch Profiles
-  const fetchProfiles = async () => {
+  // Fetch Profiles (with optional search query)
+  const fetchProfiles = async (searchQuery = '') => {
     setLoading(true);
     try {
-      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_profiles`);
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_profiles`, {
+        params: { search: searchQuery },
+      });
       if (response.status === 200) {
         setProfiles(response.data.profiles);
+        if (searchQuery) {
+          const count = response.data.profiles.length;
+          setSnackbar({
+            open: true,
+            message: `Found ${count} profile(s) based on search.`,
+            severity: 'success',
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching profiles:', error);
@@ -204,6 +236,10 @@ const AdminDashboard = () => {
 
   // ----------------------- User Accounts Functions -----------------------
 
+  /**
+   * User Story: As a user admin, I want to create user accounts so that new users can join the system.
+   * Trigger: The admin submits the create user form.
+   */
   // Validate Create User Form
   const validateCreateUser = () => {
     const errors = {};
@@ -219,7 +255,10 @@ const AdminDashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Create User Account
+  /**
+   * User Story: As a user admin, I want to create user accounts so that new users can join the system.
+   * Trigger: The admin submits the create user form.
+   */
   const handleCreateUser = async () => {
     if (!validateCreateUser()) return;
     setLoading(true);
@@ -256,6 +295,10 @@ const AdminDashboard = () => {
     }
   };
 
+  /**
+   * User Story: As a user admin, I want to update user accounts so that the latest information is included.
+   * Trigger: The admin submits the update user form.
+   */
   // Validate Update User Form
   const validateUpdateUser = () => {
     const errors = {};
@@ -269,7 +312,6 @@ const AdminDashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Update User Account
   const handleUpdateUser = async () => {
     if (!validateUpdateUser()) return;
     setLoading(true);
@@ -310,7 +352,10 @@ const AdminDashboard = () => {
     }
   };
 
-  // Suspend User Account
+  /**
+   * User Story: As a user admin, I want to suspend user accounts so that the user can no longer log in.
+   * Trigger: The admin selects to suspend a user account.
+   */
   const handleSuspendUser = async () => {
     setLoading(true);
     try {
@@ -345,7 +390,10 @@ const AdminDashboard = () => {
     }
   };
 
-  // Re-enable User Account
+  /**
+   * User Story: As a user admin, I want to re-enable suspended user accounts so that the user can log in again.
+   * Trigger: The admin selects to re-enable a suspended user account.
+   */
   const handleReenableUser = async () => {
     setLoading(true);
     try {
@@ -380,12 +428,20 @@ const AdminDashboard = () => {
     }
   };
 
+  /**
+   * User Story: As a user admin, I want to search for user accounts so that I can find a particular user.
+   * Trigger: The admin applies filters using the search fields.
+   */
   // Apply User Filters
   const handleApplyUserFilters = () => {
     fetchUsers(userFilters);
     setUserPage(0); // Reset to first page after filter
   };
 
+  /**
+   * User Story: As a user admin, I want to reset user account filters to view all users.
+   * Trigger: The admin clicks the reset filters button.
+   */
   // Reset User Filters
   const handleResetUserFilters = () => {
     setUserFilters({ username: '', email: '', role: '', status: '' });
@@ -395,6 +451,10 @@ const AdminDashboard = () => {
 
   // ----------------------- User Profiles Functions -----------------------
 
+  /**
+   * User Story: As a user admin, I want to create a user profile so that I can have a new profile of users.
+   * Trigger: The admin submits the create profile form.
+   */
   // Validate Create Profile Form
   const validateCreateProfile = () => {
     const errors = {};
@@ -404,7 +464,6 @@ const AdminDashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Create User Profile
   const handleCreateProfile = async () => {
     if (!validateCreateProfile()) return;
     setLoading(true);
@@ -445,6 +504,10 @@ const AdminDashboard = () => {
     }
   };
 
+  /**
+   * User Story: As a user admin, I want to update a user profile so that the latest user information is available.
+   * Trigger: The admin submits the update profile form.
+   */
   // Validate Update Profile Form
   const validateUpdateProfile = () => {
     const errors = {};
@@ -453,7 +516,6 @@ const AdminDashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Update User Profile
   const handleUpdateProfile = async () => {
     if (!validateUpdateProfile()) return;
     setLoading(true);
@@ -497,7 +559,10 @@ const AdminDashboard = () => {
     }
   };
 
-  // Suspend User Profile
+  /**
+   * User Story: As a user admin, I want to suspend a user profile so that all the users under a profile can no longer log in.
+   * Trigger: The admin selects to suspend a user profile.
+   */
   const handleSuspendProfile = async () => {
     setLoading(true);
     try {
@@ -533,7 +598,10 @@ const AdminDashboard = () => {
     }
   };
 
-  // Re-enable User Profile
+  /**
+   * User Story: As a user admin, I want to re-enable a suspended user profile so that all the users under the profile can log in again.
+   * Trigger: The admin selects to re-enable a suspended user profile.
+   */
   const handleReenableProfile = async () => {
     setLoading(true);
     try {
@@ -569,6 +637,10 @@ const AdminDashboard = () => {
     }
   };
 
+  /**
+   * User Story: As a user admin, I want to search for user profiles so that I can find a particular profile.
+   * Trigger: The admin applies a search query for profiles.
+   */
   // Search Profiles
   const handleSearchProfiles = () => {
     fetchProfiles(profileSearchQuery);
@@ -577,6 +649,10 @@ const AdminDashboard = () => {
 
   // ----------------------- Logout Function -----------------------
 
+  /**
+   * User Story: As a user admin, I want to logout so that I can exit the system.
+   * Trigger: The admin clicks the logout button.
+   */
   const handleLogout = () => {
     // Clear localStorage
     localStorage.removeItem('user');
@@ -601,6 +677,10 @@ const AdminDashboard = () => {
 
   // ----------------------- Render Functions -----------------------
 
+  /**
+   * User Story: As a user admin, I want to view user accounts so that I know the user’s information.
+   * Trigger: The admin navigates to the User Accounts view.
+   */
   // Render Users Table with Filters
   const renderUsers = () => {
     // Calculate the slice of users to display based on pagination
@@ -772,10 +852,13 @@ const AdminDashboard = () => {
             />
           </>
         )}
-      </Box>
-    );
-  };
+        </Box>)
+      };
 
+  /**
+   * User Story: As a user admin, I want to view user profiles so that I know the background of the profile.
+   * Trigger: The admin navigates to the User Profiles view.
+   */
   // Render Profiles Table
   const renderProfiles = () => {
     // Calculate the slice of profiles to display based on pagination
@@ -905,6 +988,82 @@ const AdminDashboard = () => {
     );
   };
 
+  /**
+   * User Story: As a user admin, I want to see a landing page upon login that allows me to navigate to different sections.
+   * Trigger: The admin logs into the system.
+   */
+  // Render Landing Page
+  const renderLandingPage = () => {
+    return (
+      <Box
+        sx={{
+          height: '80vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Typography variant="h4" gutterBottom>
+          Welcome, {username}!
+        </Typography>
+        <Typography variant="h6" gutterBottom>
+          What would you like to do today?
+        </Typography>
+        <Grid container spacing={4} justifyContent="center" sx={{ mt: 4 }}>
+          <Grid item>
+            <Card
+              sx={{
+                width: 600,
+                height: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: 3,
+                '&:hover': {
+                  boxShadow: 6,
+                },
+              }}
+              onClick={() => handleNavigation('users')}
+            >
+              <CardActionArea sx={{ width: '100%', height: '100%' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <PeopleIcon sx={{ fontSize: 150, color: 'primary.main', mb: 2 }} />
+                  <Typography variant="h4">View User Accounts</Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          </Grid>
+          <Grid item>
+            <Card
+              sx={{
+                width: 600,
+                height: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: 3,
+                '&:hover': {
+                  boxShadow: 6,
+                },
+              }}
+              onClick={() => handleNavigation('profiles')}
+            >
+              <CardActionArea sx={{ width: '100%', height: '100%' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <PersonIcon sx={{ fontSize: 150, color: 'primary.main', mb: 2 }} />
+                  <Typography variant="h4">View User Profiles</Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
+    );
+  };
+
   // ----------------------- Main Render -----------------------
 
   return (
@@ -925,18 +1084,40 @@ const AdminDashboard = () => {
         </Toolbar>
         <Box sx={{ overflow: 'auto' }}>
           <List>
+            {/* Home Button */}
             <ListItem disablePadding>
-              <ListItemButton selected={currentView === 'users'} onClick={() => handleNavigation('users')}>
+              <ListItemButton
+                selected={currentView === 'landing'}
+                onClick={() => handleNavigation('landing')}
+              >
+                <HomeIcon sx={{ marginRight: 2 }} />
+                <ListItemText primary="Home" />
+              </ListItemButton>
+            </ListItem>
+
+            {/* User Accounts Button */}
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={currentView === 'users'}
+                onClick={() => handleNavigation('users')}
+              >
+                <PeopleIcon sx={{ marginRight: 2 }} />
                 <ListItemText primary="User Accounts" />
               </ListItemButton>
             </ListItem>
+
+            {/* User Profiles Button */}
             <ListItem disablePadding>
-              <ListItemButton selected={currentView === 'profiles'} onClick={() => handleNavigation('profiles')}>
+              <ListItemButton
+                selected={currentView === 'profiles'}
+                onClick={() => handleNavigation('profiles')}
+              >
+                <PersonIcon sx={{ marginRight: 2 }} />
                 <ListItemText primary="User Profiles" />
               </ListItemButton>
             </ListItem>
           </List>
-        </Box>
+      </Box>
       </Drawer>
 
       {/* Main Content */}
@@ -945,7 +1126,11 @@ const AdminDashboard = () => {
         <AppBar position="static" sx={{ mb: 4, width: `calc(100% - ${drawerWidth}px)`, ml: `${drawerWidth}px` }}>
           <Toolbar>
             <Typography variant="h6" sx={{ flexGrow: 1 }}>
-              {currentView === 'users' ? 'User Accounts' : 'User Profiles'}
+              {currentView === 'users'
+                ? 'User Accounts'
+                : currentView === 'profiles'
+                ? 'User Profiles'
+                : 'Dashboard'}
             </Typography>
             <Button color="inherit" onClick={handleLogout}>
               Logout
@@ -966,6 +1151,7 @@ const AdminDashboard = () => {
         </Snackbar>
 
         {/* Render Content Based on Current View */}
+        {currentView === 'landing' && renderLandingPage()}
         {currentView === 'users' && renderUsers()}
         {currentView === 'profiles' && renderProfiles()}
 
@@ -974,7 +1160,10 @@ const AdminDashboard = () => {
         {/* Create User Dialog */}
         <Dialog
           open={openCreateUser}
-          onClose={() => { setOpenCreateUser(false); setUserErrors({}); }}
+          onClose={() => {
+            setOpenCreateUser(false);
+            setUserErrors({});
+          }}
           fullWidth
           maxWidth="sm"
         >
@@ -1037,7 +1226,14 @@ const AdminDashboard = () => {
             </FormControl>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => { setOpenCreateUser(false); setUserErrors({}); }}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setOpenCreateUser(false);
+                setUserErrors({});
+              }}
+            >
+              Cancel
+            </Button>
             <Button onClick={handleCreateUser} variant="contained" color="primary" disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'Create'}
             </Button>
@@ -1047,7 +1243,10 @@ const AdminDashboard = () => {
         {/* Update User Dialog */}
         <Dialog
           open={openUpdateUser}
-          onClose={() => { setOpenUpdateUser(false); setUpdateUserErrors({}); }}
+          onClose={() => {
+            setOpenUpdateUser(false);
+            setUpdateUserErrors({});
+          }}
           fullWidth
           maxWidth="sm"
         >
@@ -1056,43 +1255,58 @@ const AdminDashboard = () => {
             {selectedUser && (
               <>
                 <Typography variant="subtitle1">Username: {selectedUser.username}</Typography>
-                <TextField
-                  label="Email"
-                  name="email"
-                  type="email"
-                  fullWidth
-                  required
-                  margin="normal"
-                  value={updatedUserData.email}
-                  onChange={(e) => setUpdatedUserData({ ...updatedUserData, email: e.target.value })}
-                  error={Boolean(updateUserErrors.email)}
-                  helperText={updateUserErrors.email}
-                />
-                <FormControl fullWidth required margin="normal" error={Boolean(updateUserErrors.role)}>
-                  <InputLabel id="update-role-select-label">Role</InputLabel>
-                  <Select
-                    labelId="update-role-select-label"
-                    label="Role"
-                    value={updatedUserData.role}
-                    onChange={(e) => setUpdatedUserData({ ...updatedUserData, role: e.target.value })}
-                  >
-                    {profiles.map((profile) => (
-                      <MenuItem key={profile.role} value={profile.role}>
-                        {formatLabel(profile.role)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {updateUserErrors.role && (
-                    <Typography variant="caption" color="error">
-                      {updateUserErrors.role}
-                    </Typography>
-                  )}
-                </FormControl>
+                <Typography variant="subtitle1">Email: {selectedUser.email}</Typography>
+                <Typography variant="subtitle1">Role: {formatLabel(selectedUser.role)}</Typography>
+                <Typography variant="subtitle1">
+                  Status: {selectedUser.suspended ? 'Suspended' : 'Active'}
+                </Typography>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="h6">Update Information</Typography>
+                  <TextField
+                    label="Email"
+                    name="email"
+                    type="email"
+                    fullWidth
+                    required
+                    margin="normal"
+                    value={updatedUserData.email}
+                    onChange={(e) => setUpdatedUserData({ ...updatedUserData, email: e.target.value })}
+                    error={Boolean(updateUserErrors.email)}
+                    helperText={updateUserErrors.email}
+                  />
+                  <FormControl fullWidth required margin="normal" error={Boolean(updateUserErrors.role)}>
+                    <InputLabel id="update-role-select-label">Role</InputLabel>
+                    <Select
+                      labelId="update-role-select-label"
+                      label="Role"
+                      value={updatedUserData.role}
+                      onChange={(e) => setUpdatedUserData({ ...updatedUserData, role: e.target.value })}
+                    >
+                      {profiles.map((profile) => (
+                        <MenuItem key={profile.role} value={profile.role}>
+                          {formatLabel(profile.role)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {updateUserErrors.role && (
+                      <Typography variant="caption" color="error">
+                        {updateUserErrors.role}
+                      </Typography>
+                    )}
+                  </FormControl>
+                </Box>
               </>
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => { setOpenUpdateUser(false); setUpdateUserErrors({}); }}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setOpenUpdateUser(false);
+                setUpdateUserErrors({});
+              }}
+            >
+              Cancel
+            </Button>
             <Button onClick={handleUpdateUser} variant="contained" color="primary" disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'Update'}
             </Button>
@@ -1150,7 +1364,10 @@ const AdminDashboard = () => {
         {/* Create Profile Dialog */}
         <Dialog
           open={openCreateProfile}
-          onClose={() => { setOpenCreateProfile(false); setProfileErrors({}); }}
+          onClose={() => {
+            setOpenCreateProfile(false);
+            setProfileErrors({});
+          }}
           fullWidth
           maxWidth="sm"
         >
@@ -1191,7 +1408,14 @@ const AdminDashboard = () => {
             </FormControl>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => { setOpenCreateProfile(false); setProfileErrors({}); }}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setOpenCreateProfile(false);
+                setProfileErrors({});
+              }}
+            >
+              Cancel
+            </Button>
             <Button onClick={handleCreateProfile} variant="contained" color="primary" disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'Create'}
             </Button>
@@ -1201,7 +1425,10 @@ const AdminDashboard = () => {
         {/* Update Profile Dialog */}
         <Dialog
           open={openUpdateProfile}
-          onClose={() => { setOpenUpdateProfile(false); setUpdateProfileErrors({}); }}
+          onClose={() => {
+            setOpenUpdateProfile(false);
+            setUpdateProfileErrors({});
+          }}
           fullWidth
           maxWidth="sm"
         >
@@ -1210,33 +1437,49 @@ const AdminDashboard = () => {
             {selectedProfile && (
               <>
                 <Typography variant="subtitle1">Role: {formatLabel(selectedProfile.role)}</Typography>
-                <FormControl fullWidth required margin="normal" error={Boolean(updateProfileErrors.rights)}>
-                  <InputLabel id="update-rights-select-label">Rights</InputLabel>
-                  <Select
-                    labelId="update-rights-select-label"
-                    label="Rights"
-                    multiple
-                    value={updatedProfileData.rights}
-                    onChange={(e) => setUpdatedProfileData({ ...updatedProfileData, rights: e.target.value })}
-                    renderValue={(selected) => selected.map(right => formatLabel(right)).join(', ')}
-                  >
-                    {rightsOptions.map((right) => (
-                      <MenuItem key={right.value} value={right.value}>
-                        {right.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {updateProfileErrors.rights && (
-                    <Typography variant="caption" color="error">
-                      {updateProfileErrors.rights}
-                    </Typography>
-                  )}
-                </FormControl>
+                <Typography variant="subtitle1">Rights:</Typography>
+                {selectedProfile.rights.map((right, index) => (
+                  <Typography key={index} variant="body2">
+                    {formatLabel(right)}
+                  </Typography>
+                ))}
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="h6">Update Rights</Typography>
+                  <FormControl fullWidth required margin="normal" error={Boolean(updateProfileErrors.rights)}>
+                    <InputLabel id="update-rights-select-label">Rights</InputLabel>
+                    <Select
+                      labelId="update-rights-select-label"
+                      label="Rights"
+                      multiple
+                      value={updatedProfileData.rights}
+                      onChange={(e) => setUpdatedProfileData({ ...updatedProfileData, rights: e.target.value })}
+                      renderValue={(selected) => selected.map(right => formatLabel(right)).join(', ')}
+                    >
+                      {rightsOptions.map((right) => (
+                        <MenuItem key={right.value} value={right.value}>
+                          {right.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {updateProfileErrors.rights && (
+                      <Typography variant="caption" color="error">
+                        {updateProfileErrors.rights}
+                      </Typography>
+                    )}
+                  </FormControl>
+                </Box>
               </>
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => { setOpenUpdateProfile(false); setUpdateProfileErrors({}); }}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setOpenUpdateProfile(false);
+                setUpdateProfileErrors({});
+              }}
+            >
+              Cancel
+            </Button>
             <Button onClick={handleUpdateProfile} variant="contained" color="primary" disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'Update'}
             </Button>
