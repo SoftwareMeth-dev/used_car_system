@@ -28,8 +28,8 @@ import {
   TableRow,
   TableCell,
   TablePagination,
-  Snackbar, // Import Snackbar
-  Alert,    // Import Alert for use within Snackbar
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -79,11 +79,7 @@ const AdminDashboard = () => {
   // State for Sidebar Navigation
   const [currentView, setCurrentView] = useState('users'); // 'users' or 'profiles'
 
-  // General States
-  // Remove the existing message state
-  // const [message, setMessage] = useState({ type: '', text: '' });
-
-  // Add Snackbar state
+  // Snackbar state
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -94,7 +90,12 @@ const AdminDashboard = () => {
 
   // States for User Accounts
   const [users, setUsers] = useState([]);
-  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userFilters, setUserFilters] = useState({
+    username: '',
+    email: '',
+    role: '',
+    status: '',
+  });
   const [userPage, setUserPage] = useState(0);
   const [userRowsPerPage, setUserRowsPerPage] = useState(5);
 
@@ -144,21 +145,20 @@ const AdminDashboard = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Fetch Users
-  const fetchUsers = async (query = '') => {
+  // Fetch Users with Filters
+  const fetchUsers = async (filters = {}) => {
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
-      const endpoint = query ? '/search_users' : '/view_users';
-      const response = await axios.get(`${config.API_BASE_URL}/user_admin${endpoint}`, {
-        params: { query },
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/search_users`, {
+        params: filters,
       });
       if (response.status === 200) {
         setUsers(response.data.users);
-        if (query) {
+        if (Object.values(filters).some(val => val)) {
+          const count = response.data.users.length;
           setSnackbar({
             open: true,
-            message: `Found ${response.data.users.length} user(s).`,
+            message: `Found ${count} user(s) based on filters.`,
             severity: 'success',
           });
         }
@@ -176,23 +176,12 @@ const AdminDashboard = () => {
   };
 
   // Fetch Profiles
-  const fetchProfiles = async (query = '') => {
+  const fetchProfiles = async () => {
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
-      const endpoint = query ? '/search_profiles' : '/view_profiles';
-      const response = await axios.get(`${config.API_BASE_URL}/user_admin${endpoint}`, {
-        params: { query },
-      });
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_profiles`);
       if (response.status === 200) {
         setProfiles(response.data.profiles);
-        if (query) {
-          setSnackbar({
-            open: true,
-            message: `Found ${response.data.profiles.length} profile(s).`,
-            severity: 'success',
-          });
-        }
       }
     } catch (error) {
       console.error('Error fetching profiles:', error);
@@ -212,18 +201,6 @@ const AdminDashboard = () => {
     fetchProfiles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Remove the auto-hide Alert effect since Snackbar handles it
-  /*
-  useEffect(() => {
-    if (message.text) {
-      const timer = setTimeout(() => {
-        setMessage({ type: '', text: '' });
-      }, 5000); // 5 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
-  */
 
   // ----------------------- User Accounts Functions -----------------------
 
@@ -246,7 +223,6 @@ const AdminDashboard = () => {
   const handleCreateUser = async () => {
     if (!validateCreateUser()) return;
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
       const response = await axios.post(`${config.API_BASE_URL}/user_admin/create_user`, newUser);
       if (response.status === 201) {
@@ -297,7 +273,6 @@ const AdminDashboard = () => {
   const handleUpdateUser = async () => {
     if (!validateUpdateUser()) return;
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
       const response = await axios.put(
         `${config.API_BASE_URL}/user_admin/update_user/${selectedUser.username}`,
@@ -309,7 +284,7 @@ const AdminDashboard = () => {
           message: 'User updated successfully.',
           severity: 'success',
         });
-        fetchUsers(); // Refresh users
+        fetchUsers(userFilters); // Refresh users with current filters
         setOpenUpdateUser(false); // Close dialog
         setSelectedUser(null);
         setUpdatedUserData({ email: '', role: '' });
@@ -338,7 +313,6 @@ const AdminDashboard = () => {
   // Suspend User Account
   const handleSuspendUser = async () => {
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
       const response = await axios.patch(`${config.API_BASE_URL}/user_admin/suspend_user/${userToSuspend.username}`);
       if (response.status === 200) {
@@ -347,7 +321,7 @@ const AdminDashboard = () => {
           message: `User '${userToSuspend.username}' suspended successfully.`,
           severity: 'success',
         });
-        fetchUsers(); // Refresh users
+        fetchUsers(userFilters); // Refresh users with current filters
         setOpenSuspendUser(false); // Close dialog
         setUserToSuspend(null);
       }
@@ -374,7 +348,6 @@ const AdminDashboard = () => {
   // Re-enable User Account
   const handleReenableUser = async () => {
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
       const response = await axios.patch(`${config.API_BASE_URL}/user_admin/reenable_user/${userToReenable.username}`);
       if (response.status === 200) {
@@ -383,7 +356,7 @@ const AdminDashboard = () => {
           message: `User '${userToReenable.username}' re-enabled successfully.`,
           severity: 'success',
         });
-        fetchUsers(); // Refresh users
+        fetchUsers(userFilters); // Refresh users with current filters
         setOpenReenableUser(false); // Close dialog
         setUserToReenable(null);
       }
@@ -407,10 +380,17 @@ const AdminDashboard = () => {
     }
   };
 
-  // Search Users
-  const handleSearchUsers = () => {
-    fetchUsers(userSearchQuery);
-    setUserPage(0); // Reset to first page after search
+  // Apply User Filters
+  const handleApplyUserFilters = () => {
+    fetchUsers(userFilters);
+    setUserPage(0); // Reset to first page after filter
+  };
+
+  // Reset User Filters
+  const handleResetUserFilters = () => {
+    setUserFilters({ username: '', email: '', role: '', status: '' });
+    fetchUsers();
+    setUserPage(0); // Reset to first page after reset
   };
 
   // ----------------------- User Profiles Functions -----------------------
@@ -428,7 +408,6 @@ const AdminDashboard = () => {
   const handleCreateProfile = async () => {
     if (!validateCreateProfile()) return;
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
       const payload = {
         role: newProfile.role,
@@ -478,7 +457,6 @@ const AdminDashboard = () => {
   const handleUpdateProfile = async () => {
     if (!validateUpdateProfile()) return;
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
       const payload = {
         rights: updatedProfileData.rights, // Array of snake_case rights
@@ -522,7 +500,6 @@ const AdminDashboard = () => {
   // Suspend User Profile
   const handleSuspendProfile = async () => {
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
       const response = await axios.patch(`${config.API_BASE_URL}/user_admin/suspend_profile/${profileToSuspend.role}`);
       if (response.status === 200) {
@@ -532,7 +509,7 @@ const AdminDashboard = () => {
           severity: 'success',
         });
         fetchProfiles(); // Refresh profiles
-        fetchUsers(); // Refresh users as well
+        fetchUsers(userFilters); // Refresh users as well
         setOpenSuspendProfile(false); // Close dialog
         setProfileToSuspend(null);
       }
@@ -559,7 +536,6 @@ const AdminDashboard = () => {
   // Re-enable User Profile
   const handleReenableProfile = async () => {
     setLoading(true);
-    // setMessage({ type: '', text: '' }); // Remove Alert reset
     try {
       const response = await axios.patch(`${config.API_BASE_URL}/user_admin/reenable_profile/${profileToReenable.role}`);
       if (response.status === 200) {
@@ -569,7 +545,7 @@ const AdminDashboard = () => {
           severity: 'success',
         });
         fetchProfiles(); // Refresh profiles
-        fetchUsers(); // Refresh users as well
+        fetchUsers(userFilters); // Refresh users as well
         setOpenReenableProfile(false); // Close dialog
         setProfileToReenable(null);
       }
@@ -625,7 +601,7 @@ const AdminDashboard = () => {
 
   // ----------------------- Render Functions -----------------------
 
-  // Render Users Table
+  // Render Users Table with Filters
   const renderUsers = () => {
     // Calculate the slice of users to display based on pagination
     const start = userPage * userRowsPerPage;
@@ -634,28 +610,78 @@ const AdminDashboard = () => {
 
     return (
       <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <TextField
-            label="Search Users"
-            variant="outlined"
-            value={userSearchQuery}
-            onChange={(e) => setUserSearchQuery(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleSearchUsers();
-              }
-            }}
-            sx={{ width: '40%' }}
-          />
-          <Box>
-            <Button variant="contained" color="primary" onClick={handleSearchUsers} sx={{ mr: 1 }}>
-              Search
+        {/* Filters Section */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Filter Users
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              label="Username"
+              variant="outlined"
+              value={userFilters.username}
+              onChange={(e) => setUserFilters({ ...userFilters, username: e.target.value })}
+              sx={{ minWidth: 200 }}
+            />
+            <TextField
+              label="Email"
+              variant="outlined"
+              value={userFilters.email}
+              onChange={(e) => setUserFilters({ ...userFilters, email: e.target.value })}
+              sx={{ minWidth: 200 }}
+            />
+            <FormControl variant="outlined" sx={{ minWidth: 200 }}>
+              <InputLabel id="filter-role-label">Role</InputLabel>
+              <Select
+                labelId="filter-role-label"
+                label="Role"
+                value={userFilters.role}
+                onChange={(e) => setUserFilters({ ...userFilters, role: e.target.value })}
+              >
+                <MenuItem value="">
+                  <em>All</em>
+                </MenuItem>
+                {profiles.map((profile) => (
+                  <MenuItem key={profile.role} value={profile.role}>
+                    {formatLabel(profile.role)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl variant="outlined" sx={{ minWidth: 200 }}>
+              <InputLabel id="filter-status-label">Status</InputLabel>
+              <Select
+                labelId="filter-status-label"
+                label="Status"
+                value={userFilters.status}
+                onChange={(e) => setUserFilters({ ...userFilters, status: e.target.value })}
+              >
+                <MenuItem value="">
+                  <em>All</em>
+                </MenuItem>
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="suspended">Suspended</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+            <Button variant="contained" color="primary" onClick={handleApplyUserFilters}>
+              Apply Filters
             </Button>
-            <Button variant="contained" color="success" onClick={() => setOpenCreateUser(true)}>
-              Create User
+            <Button variant="outlined" color="secondary" onClick={handleResetUserFilters}>
+              Reset Filters
             </Button>
           </Box>
         </Box>
+
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" color="success" onClick={() => setOpenCreateUser(true)}>
+            Create User
+          </Button>
+        </Box>
+
+        {/* Users Table */}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
             <CircularProgress />
@@ -1025,7 +1051,7 @@ const AdminDashboard = () => {
           fullWidth
           maxWidth="sm"
         >
-          <DialogTitle>Update User</DialogTitle>
+          <DialogTitle>View / Update User</DialogTitle>
           <DialogContent>
             {selectedUser && (
               <>
