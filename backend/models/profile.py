@@ -150,6 +150,7 @@ class Profile:
                 logger.info(f"Profile with role '{role}' suspended successfully.")
                 # Suspend all users with this role
                 suspend_result = User.suspend_users_by_role(role)
+                print(suspend_result)
                 if suspend_result['status_code'] == 200:
                     return{"message": "Profile and associated users suspended successfully."},  200
                 logger.warning(f"Profile suspended but failed to suspend users with role '{role}'.")
