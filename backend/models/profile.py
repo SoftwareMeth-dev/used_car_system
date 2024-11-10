@@ -146,12 +146,14 @@ class Profile:
         """
         try:
             result = profiles_collection.update_one({"role": role}, {"$set": {"suspended": True}})
+            print(result)
             if result.modified_count > 0:
                 logger.info(f"Profile with role '{role}' suspended successfully.")
                 # Suspend all users with this role
+                print("A")
                 suspend_result = User.suspend_users_by_role(role)
                 print(suspend_result)
-                if suspend_result['status_code'] == 200:
+                if suspend_result[1] == 200:
                     return{"message": "Profile and associated users suspended successfully."},  200
                 logger.warning(f"Profile suspended but failed to suspend users with role '{role}'.")
                 return{"error": "Profile suspended but failed to suspend associated users."},  500
@@ -168,13 +170,15 @@ class Profile:
         Also re-enables all users with this role.
         Returns a dictionary with 'data' and 'status_code'.
         """
+        print("hello")
         try:
-            result = profiles_collection.update_one({"role": role}, {"$set": {"suspended": False}})
+            result = profiles_collection.update_one({"role": role}, {"$set": {"suspended": False}}) 
             if result.modified_count > 0:
                 logger.info(f"Profile with role '{role}' re-enabled successfully.")
                 # Re-enable all users with this role
-                reenable_result = User.reenable_users_by_role(role)
-                if reenable_result['status_code'] == 200:
+                reenable_result = User.reenable_users_by_role(role) 
+                print(f're result {reenable_result}')
+                if reenable_result[1] == 200:
                     return{"message": "Profile and associated users re-enabled successfully."},  200
                 logger.warning(f"Profile re-enabled but failed to re-enable users with role '{role}'.")
                 return{"error": "Profile re-enabled but failed to re-enable associated users."},  500
