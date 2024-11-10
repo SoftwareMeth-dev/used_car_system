@@ -1,26 +1,30 @@
 // src/components/SellerDashboard.js
-import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Container, Box } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Container,
+  Box,
+} from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import SellerMetricsController from "../controllers/SellerMetricsController";
 
 function SellerDashboard() {
   const navigate = useNavigate();
-  const userData = localStorage.getItem('user');
-  console.log("Entering Seller dahsboard")
- 
-  let user = {};
-  if (userData) {
-    try {
-      user = JSON.parse(userData).role;
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-    }
-  }
+  const [metrics, setMetrics] = useState({ views: 0, shortlists: 0 });
+
+  useEffect(() => {
+    // Use the controller to fetch metrics
+    SellerMetricsController.getMetrics()
+      .then(setMetrics)
+      .catch((error) => console.error("Error fetching metrics:", error));
+  }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    console.log('User logged out');
-    navigate('/');
+    localStorage.removeItem("user");
+    navigate("/");
   };
 
   return (
@@ -30,17 +34,19 @@ function SellerDashboard() {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Seller Dashboard
           </Typography>
-          <Typography variant="body1" sx={{ mr: 2 }}>
-            {user.username}
-          </Typography>
-          <Button color="inherit" onClick={handleLogout}>Logout</Button>
+          <Button color="inherit" onClick={handleLogout}>
+            Logout
+          </Button>
         </Toolbar>
       </AppBar>
       <Container>
         <Box sx={{ mt: 4 }}>
-          <Typography variant="h4">Welcome, {user.username}!</Typography>
+          <Typography variant="h4">Welcome to Your Dashboard!</Typography>
           <Typography variant="body1" sx={{ mt: 2 }}>
-            This is the Seller Dashboard. More features coming soon.
+            This is a prototype for the View Seller Metrics use case.
+          </Typography>
+          <Typography variant="body1" sx={{ mt: 2 }}>
+            Views: {metrics.views} | Shortlists: {metrics.shortlists}
           </Typography>
         </Box>
       </Container>
