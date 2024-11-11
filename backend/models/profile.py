@@ -30,14 +30,12 @@ def serialize_profiles(profiles):
 
 class CreateProfileSchema(Schema):
     role = fields.Str(required=True)
-    rights = fields.Str(required=True)
+    rights = fields.List(fields.Str(), required=True)  # Defines rights as an array of strings
     # Add other necessary fields here
 
 
 class UpdateProfileSchema(Schema):
-    rights = fields.Str()
-    # Add other fields that can be updated
-
+    rights = fields.List(fields.Str())  # Optional for partial updates
 
 class Profile:
     @staticmethod
@@ -50,6 +48,7 @@ class Profile:
         schema = CreateProfileSchema()
         try:
             validated_data = schema.load(profile_data)
+            print(validated_data)
         except ValidationError as err:
             logger.warning(f"Validation errors during profile creation: {err.messages}")
             return{"error": err.messages},  400 # Bad Request
