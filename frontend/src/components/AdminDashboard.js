@@ -201,9 +201,16 @@ const AdminDashboard = () => {
   const fetchProfiles = async (searchQuery = '') => {
     setLoading(true);
     try {
-      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_profiles`, {
-        params: { search: searchQuery },
-      });
+      let endpoint = `${config.API_BASE_URL}/user_admin/view_profiles`;
+      let params = {};
+  
+      if (searchQuery.trim() !== '') {
+        endpoint = `${config.API_BASE_URL}/user_admin/search_profiles`;
+        params = { query: searchQuery };
+      }
+  
+      const response = await axios.get(endpoint, { params });
+  
       if (response.status === 200) {
         setProfiles(response.data.profiles);
         if (searchQuery) {
