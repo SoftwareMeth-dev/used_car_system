@@ -82,7 +82,7 @@ const Login = () => {
         if (err.response.status === 400) {
           setError('Bad Request: Missing username or password.');
         } else if (err.response.status === 401) {
-          setError('Unauthorized: Invalid credentials or account suspended.');
+          setError('Unauthorized: Invalid credentials.');
         } else if (err.response.status === 404) {
           setError('Not Found: User does not exist.');
         } else if (err.response.status === 500) {

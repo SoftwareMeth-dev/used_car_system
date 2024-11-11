@@ -1007,15 +1007,15 @@ const AdminDashboard = () => {
         <Typography variant="h4" gutterBottom>
           Welcome, {username}!
         </Typography>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h5" gutterBottom>
           What would you like to do today?
         </Typography>
         <Grid container spacing={4} justifyContent="center" sx={{ mt: 4 }}>
           <Grid item>
             <Card
               sx={{
-                width: 600,
-                height: 600,
+                width: 250,
+                height: 250,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1029,8 +1029,8 @@ const AdminDashboard = () => {
             >
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <PeopleIcon sx={{ fontSize: 150, color: 'primary.main', mb: 2 }} />
-                  <Typography variant="h4">View User Accounts</Typography>
+                  <PeopleIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
+                  <Typography variant="h6">View User Accounts</Typography>
                 </CardContent>
               </CardActionArea>
             </Card>
@@ -1038,8 +1038,8 @@ const AdminDashboard = () => {
           <Grid item>
             <Card
               sx={{
-                width: 600,
-                height: 600,
+                width: 250,
+                height: 250,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1053,8 +1053,8 @@ const AdminDashboard = () => {
             >
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <PersonIcon sx={{ fontSize: 150, color: 'primary.main', mb: 2 }} />
-                  <Typography variant="h4">View User Profiles</Typography>
+                  <PersonIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
+                  <Typography variant="h6">View User Profiles</Typography>
                 </CardContent>
               </CardActionArea>
             </Card>
