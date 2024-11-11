@@ -47,30 +47,29 @@ class BuyerController {
     }
   }
 
-  async saveToShortlist(listingId) {
+  async saveToShortlist(data) {
     if (!this.buyer) await this.fetchBuyerData();
     if (!this.buyer) {
       console.error("No buyer data available to save to shortlist.");
       return;
     }
     try {
-      await axios.post(`${API_BASE_URL}/save_listing`, {
-        user_id: this.buyer.id,  // Ensure correct user ID is passed
-        listing_id: listingId
-      });
+      await axios.post(`${API_BASE_URL}/save_listing`, 
+        data
+      );
     } catch (error) {
       console.error("Error saving to shortlist:", error);
     }
   }
 
-  async getShortlist() {
+  async getShortlist(username) {
     if (!this.buyer) await this.fetchBuyerData();
     if (!this.buyer) {
       console.error("No buyer data available to fetch shortlist.");
       return [];
     }
     try {
-      const response = await axios.get(`${API_BASE_URL}/view_shortlist`, { params: { user_id: this.buyer.id } });
+      const response = await axios.get(`${API_BASE_URL}/view_shortlist`, { params: { user_id: username } });
       return response.data.map(
         listing => new CarListing(listing._id, listing.make, listing.model, listing.price, listing.details)
       );

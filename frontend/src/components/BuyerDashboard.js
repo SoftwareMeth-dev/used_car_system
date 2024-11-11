@@ -78,8 +78,14 @@ function BuyerDashboard() {
 
   const handleAddToShortlist = async (listingId) => {
     try {
-      await buyerController.saveToShortlist(listingId);
-      const updatedShortlist = await buyerController.getShortlist();
+      console.log(listingId)
+      const data = {
+        user_id: username,
+        listing_id:listingId
+        }
+      await buyerController.saveToShortlist(data);
+      const updatedShortlist = await buyerController.getShortlist(username);
+      console.log(updatedShortlist);
       setShortlist(updatedShortlist);
       setFilteredShortlist(updatedShortlist);
     } catch (error) {
