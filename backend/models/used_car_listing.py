@@ -23,7 +23,9 @@ def serialize_listing(listing):
     listing['_id'] = str(listing['_id'])
     listing['seller_id'] = str(listing['seller_id']) if listing.get('seller_id') else None
     listing['created_at'] = listing['created_at'].isoformat() if listing.get('created_at') else None
-    print(listing)
+    listing['views'] = listing.get('views', 0)  # Ensure views are included
+    listing['shortlists'] = listing.get('shortlists', 0)  # Ensure shortlists are included
+    logger.debug(f"Serialized listing: {listing}")
     return listing
 
 def serialize_listings(listings):
@@ -35,6 +37,7 @@ class CreateListingSchema(Schema):
     model = fields.Str(required=True)
     year = fields.Int(required=True)
     price = fields.Float(required=True)
+    
     # Add other necessary fields here
 
 class UpdateListingSchema(Schema):
@@ -42,6 +45,9 @@ class UpdateListingSchema(Schema):
     model = fields.Str()
     year = fields.Int()
     price = fields.Float()
+    # Optionally include views and shortlists if you want to allow their updates
+    # views = fields.Int()
+    # shortlists = fields.Int()
     # Add other fields that can be updated
 
 class UsedCarListing:
@@ -59,6 +65,9 @@ class UsedCarListing:
             logger.warning(f"Validation errors during listing creation: {err.messages}")
             return {"error": err.messages}, 400  # Bad Request
 
+        # Initialize views and shortlists to 0
+        validated_data['views'] = 0
+        validated_data['shortlists'] = 0
         validated_data['created_at'] = datetime.utcnow()
         try:
             result = used_car_collection.insert_one(validated_data)
@@ -138,6 +147,15 @@ class UsedCarListing:
             return {"error": "Invalid listing_id."}, 400  # Bad Request
 
         try:
+            # Authorization: Ensure the agent owns the listing
+            listing = used_car_collection.find_one({"_id": oid})
+            if not listing:
+                logger.warning(f"Listing not found with ID: {listing_id}")
+                return {"error": "Listing not found."}, 404  # Not Found
+            if listing.get('seller_id') != validated_data.get('seller_id', listing.get('seller_id')):
+                logger.warning(f"Agent {validated_data.get('seller_id')} does not own listing {listing_id}")
+                return {"error": "You do not have permission to update this listing."}, 403  # Forbidden
+
             result = used_car_collection.update_one(
                 {"_id": oid},
                 {"$set": validated_data}
@@ -155,6 +173,7 @@ class UsedCarListing:
     def delete_listing(listing_id):
         """
         Deletes a listing based on its listing_id.
+        Ensures that only the owner can delete the listing.
         Returns a tuple of (response_dict, status_code).
         """
         try:
@@ -164,6 +183,12 @@ class UsedCarListing:
             return {"error": "Invalid listing_id."}, 400  # Bad Request
 
         try:
+            # Authorization: Ensure the agent owns the listing
+            listing = used_car_collection.find_one({"_id": oid})
+            if not listing:
+                logger.warning(f"Listing not found for deletion with ID: {listing_id}")
+                return {"error": "Listing not found."}, 404  # Not Found 
+
             result = used_car_collection.delete_one({"_id": oid})
             if result.deleted_count > 0:
                 logger.info(f"Listing with ID {listing_id} deleted successfully.")
