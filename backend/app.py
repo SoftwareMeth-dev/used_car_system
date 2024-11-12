@@ -30,6 +30,7 @@ from controllers.seller.get_metrics import get_metrics_bp
 from controllers.review.rate_review_agent import rate_review_agent_bp  # New Controller
 from controllers.review.view_reviews import view_reviews_bp 
 from controllers.buyer.loan_calculator import loan_calculator_bp 
+from controllers.used_car_agent.view_listing import view_listings_bp 
 from utils.listings import listings_bp
 
 from utils.db import init_db
@@ -72,9 +73,12 @@ app.register_blueprint(view_shortlist_bp)
 app.register_blueprint(track_view_bp)
 app.register_blueprint(track_shortlist_bp)
 app.register_blueprint(get_metrics_bp)
-app.register_blueprint(rate_review_agent_bp)  # Register RateReviewAgentController
+app.register_blueprint(rate_review_agent_bp)   
 app.register_blueprint(view_reviews_bp)  
 app.register_blueprint(loan_calculator_bp)
+app.register_blueprint(view_listings_bp)
+
+
 # Define centralized error handlers
 @app.errorhandler(400)
 def bad_request(error):

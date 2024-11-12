@@ -86,6 +86,7 @@ class User:
                 "user": serialize_user(user),
                 "profile": profile_result['profile']
             }
+            print(login_data)
             logger.info(f"User '{username}' authenticated successfully.")
             return login_data, 200  # OK
 
