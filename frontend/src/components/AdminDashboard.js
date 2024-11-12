@@ -119,7 +119,7 @@ const AdminDashboard = () => {
 
   const [openUpdateUser, setOpenUpdateUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [updatedUserData, setUpdatedUserData] = useState({ email: '', role: '' });
+  const [updatedUserData, setUpdatedUserData] = useState({ email: '' });
   const [updateUserErrors, setUpdateUserErrors] = useState({});
 
   const [openSuspendUser, setOpenSuspendUser] = useState(false);
@@ -314,7 +314,6 @@ const AdminDashboard = () => {
     } else if (!emailRegex.test(updatedUserData.email)) {
       errors.email = 'Invalid email format.';
     }
-    if (!updatedUserData.role.trim()) errors.role = 'Role is required.';
     setUpdateUserErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -336,7 +335,7 @@ const AdminDashboard = () => {
         fetchUsers(userFilters); // Refresh users with current filters
         setOpenUpdateUser(false); // Close dialog
         setSelectedUser(null);
-        setUpdatedUserData({ email: '', role: '' });
+        setUpdatedUserData({ email: '' });
         setUpdateUserErrors({});
       }
     } catch (error) {
@@ -1305,26 +1304,6 @@ const AdminDashboard = () => {
                     error={Boolean(updateUserErrors.email)}
                     helperText={updateUserErrors.email}
                   />
-                  <FormControl fullWidth required margin="normal" error={Boolean(updateUserErrors.role)}>
-                    <InputLabel id="update-role-select-label">Role</InputLabel>
-                    <Select
-                      labelId="update-role-select-label"
-                      label="Role"
-                      value={updatedUserData.role}
-                      onChange={(e) => setUpdatedUserData({ ...updatedUserData, role: e.target.value })}
-                    >
-                      {profiles.map((profile) => (
-                        <MenuItem key={profile.role} value={profile.role}>
-                          {formatLabel(profile.role)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {updateUserErrors.role && (
-                      <Typography variant="caption" color="error">
-                        {updateUserErrors.role}
-                      </Typography>
-                    )}
-                  </FormControl>
                 </Box>
               </>
             )}
