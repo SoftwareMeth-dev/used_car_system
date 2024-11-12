@@ -119,7 +119,7 @@ const AdminDashboard = () => {
 
   const [openUpdateUser, setOpenUpdateUser] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [updatedUserData, setUpdatedUserData] = useState({ email: '', role: '' });
+  const [updatedUserData, setUpdatedUserData] = useState({ email: '' });
   const [updateUserErrors, setUpdateUserErrors] = useState({});
 
   const [openSuspendUser, setOpenSuspendUser] = useState(false);
@@ -314,7 +314,6 @@ const AdminDashboard = () => {
     } else if (!emailRegex.test(updatedUserData.email)) {
       errors.email = 'Invalid email format.';
     }
-    if (!updatedUserData.role.trim()) errors.role = 'Role is required.';
     setUpdateUserErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -336,7 +335,7 @@ const AdminDashboard = () => {
         fetchUsers(userFilters); // Refresh users with current filters
         setOpenUpdateUser(false); // Close dialog
         setSelectedUser(null);
-        setUpdatedUserData({ email: '', role: '' });
+        setUpdatedUserData({ email: '' });
         setUpdateUserErrors({});
       }
     } catch (error) {
@@ -654,6 +653,17 @@ const AdminDashboard = () => {
     setProfilePage(0); // Reset to first page after search
   };
 
+  /**
+   * User Story: As a user admin, I want to reset user profile query to view all profiles.
+   * Trigger: The admin clicks the reset filters button.
+   */
+  // Reset User Profile Query
+  const handleResetProfileQuery = () => {
+    setProfileSearchQuery('');
+    fetchProfiles();
+    setProfilePage(0); // Reset to first page after reset
+  };
+
   // ----------------------- Logout Function -----------------------
 
   /**
@@ -696,11 +706,11 @@ const AdminDashboard = () => {
     const paginatedUsers = users.slice(start, end);
 
     return (
-      <Box>
+      <Box sx={{ m:1 }}>
         {/* Filters Section */}
         <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Filter Users
+            Search User Accounts
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField
@@ -753,17 +763,17 @@ const AdminDashboard = () => {
           </Box>
           <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
             <Button variant="contained" color="primary" onClick={handleApplyUserFilters}>
-              Apply Filters
+              Search
             </Button>
             <Button variant="outlined" color="secondary" onClick={handleResetUserFilters}>
-              Reset Filters
+              Reset
             </Button>
           </Box>
         </Box>
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-          <Button variant="contained" color="success" onClick={() => setOpenCreateUser(true)}>
+          <Button variant="contained" color="primary" onClick={() => setOpenCreateUser(true)}>
             Create User
           </Button>
         </Box>
@@ -795,8 +805,8 @@ const AdminDashboard = () => {
                       <TableCell>{user.suspended ? 'Suspended' : 'Active'}</TableCell>
                       <TableCell align="center">
                         <Button
-                          variant="outlined"
-                          color="primary"
+                          variant="contained"
+                          color="info"
                           onClick={() => {
                             setSelectedUser(user);
                             setUpdatedUserData({ email: user.email, role: user.role });
@@ -874,29 +884,42 @@ const AdminDashboard = () => {
     const paginatedProfiles = profiles.slice(start, end);
 
     return (
-      <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <TextField
-            label="Search Profiles"
-            variant="outlined"
-            value={profileSearchQuery}
-            onChange={(e) => setProfileSearchQuery(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleSearchProfiles();
-              }
-            }}
-            sx={{ width: '40%' }}
-          />
-          <Box>
-            <Button variant="contained" color="primary" onClick={handleSearchProfiles} sx={{ mr: 1 }}>
+      <Box sx={{ m: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Search User Profiles
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap '}}>
+            <TextField
+              label="Role"
+              variant="outlined"
+              value={profileSearchQuery}
+              onChange={(e) => setProfileSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearchProfiles();
+                }
+              }}
+              sx={{ minWidth: 300 }}
+            />
+          </Box>
+          <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+            <Button variant="contained" color="primary" onClick={handleSearchProfiles}>
               Search
             </Button>
-            <Button variant="contained" color="success" onClick={() => setOpenCreateProfile(true)}>
-              Create Profile
+            <Button variant="outlined" color="secondary" onClick={handleResetProfileQuery}>
+              Reset
             </Button>
           </Box>
         </Box>
+
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" color="primary" onClick={() => setOpenCreateProfile(true)}>
+            Create Profile
+          </Button>
+        </Box>
+
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
             <CircularProgress />
@@ -927,8 +950,8 @@ const AdminDashboard = () => {
                       <TableCell>{profile.suspended ? 'Suspended' : 'Active'}</TableCell>
                       <TableCell align="center">
                         <Button
-                          variant="outlined"
-                          color="primary"
+                          variant="contained"
+                          color="info"
                           onClick={() => {
                             setSelectedProfile(profile);
                             setUpdatedProfileData({ rights: profile.rights });
@@ -1086,7 +1109,7 @@ const AdminDashboard = () => {
       >
         <Toolbar>
           <Typography variant="h6" noWrap>
-            Admin Dashboard
+            User Admin
           </Typography>
         </Toolbar>
         <Box sx={{ overflow: 'auto' }}>
@@ -1128,9 +1151,9 @@ const AdminDashboard = () => {
       </Drawer>
 
       {/* Main Content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+      <Box component="main" sx={{ flexGrow: 1 }}>
         {/* AppBar with Logout Button */}
-        <AppBar position="static" sx={{ mb: 4, width: `calc(100% - ${drawerWidth}px)`, ml: `${drawerWidth}px` }}>
+        <AppBar position="static" sx={{ mb: 4 }}>
           <Toolbar>
             <Typography variant="h6" sx={{ flexGrow: 1 }}>
               {currentView === 'users'
@@ -1281,26 +1304,6 @@ const AdminDashboard = () => {
                     error={Boolean(updateUserErrors.email)}
                     helperText={updateUserErrors.email}
                   />
-                  <FormControl fullWidth required margin="normal" error={Boolean(updateUserErrors.role)}>
-                    <InputLabel id="update-role-select-label">Role</InputLabel>
-                    <Select
-                      labelId="update-role-select-label"
-                      label="Role"
-                      value={updatedUserData.role}
-                      onChange={(e) => setUpdatedUserData({ ...updatedUserData, role: e.target.value })}
-                    >
-                      {profiles.map((profile) => (
-                        <MenuItem key={profile.role} value={profile.role}>
-                          {formatLabel(profile.role)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {updateUserErrors.role && (
-                      <Typography variant="caption" color="error">
-                        {updateUserErrors.role}
-                      </Typography>
-                    )}
-                  </FormControl>
                 </Box>
               </>
             )}
