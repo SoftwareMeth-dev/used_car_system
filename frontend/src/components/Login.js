@@ -44,10 +44,16 @@ const Login = () => {
       if (response.status === 200 && response.data.user && response.data.profile) {
         const { user, profile } = response.data;
         console.log(response.data)
-        // Save user and profile data to localStorage
+        
+        // Extract userID from user object (assuming it's '_id')
+        const userID = user._id || user.id; // Adjust based on your backend's response
+
+        // Save user, profile, and userID to localStorage
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('profile', JSON.stringify(profile));
-        console.log('User and profile data saved to localStorage');
+        localStorage.setItem('userID', userID); // Explicitly store userID
+        console.log(userID)
+        console.log('User, profile, and userID saved to localStorage');
 
         // Redirect based on role
         switch (profile.role) {
