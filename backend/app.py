@@ -32,7 +32,7 @@ from controllers.seller.get_metrics import get_metrics_bp
 from controllers.review.rate_review_agent import rate_review_agent_bp 
 from controllers.review.view_reviews import view_reviews_bp 
 from controllers.buyer.loan_calculator import loan_calculator_bp 
-from controllers.used_car_agent.view_listing import view_listings_bp 
+from controllers.user_admin.view_listing import view_listings_bp 
 from utils.listings import listings_bp
 
 from utils.db import init_db
