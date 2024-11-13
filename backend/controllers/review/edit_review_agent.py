@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify
 from bson import ObjectId
-from models.reivew import Review
+from models.review import Review
 
 edit_review_agent_bp = Blueprint('edit_review_agent', __name__, url_prefix='/api')
 
@@ -18,13 +18,13 @@ class EditReviewAgentController:
             methods=['PUT']
         )
 
-    def edit_review_agent(self, role, review_id):
+    def edit_review_agent(self, review_id):
         """
         Endpoint to edit an existing review.
-        Validates input, ensures the requester is the original reviewer, and updates the review.
+        Delegates all processing to the Review model.
         """
         data = request.get_json()
-        response, status_code = Review.edit_review_agent(role, review_id, data)
+        response, status_code = Review.edit_review_agent(review_id, data)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes

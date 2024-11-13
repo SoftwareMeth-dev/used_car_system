@@ -417,18 +417,18 @@ class UsedCarListing:
         except Exception as e:
             logger.exception(f"Error retrieving metrics for seller_id {seller_id}: {e}")
             return {"error": "Failed to retrieve metrics for the seller."}, 500
- 
+
     @staticmethod
     def get_listings_with_reviews(user_id):
         """
-        Retrieves all listings associated with a user (either as a seller or buyer)
-        and appends the corresponding review_id if available.
+        Retrieves all listings associated with a user (seller or buyer)
+        and appends the corresponding review details if available.
 
         Parameters:
             user_id (str): The ObjectId string of the user.
 
         Returns:
-            JSON response containing the listings with appended review_id.
+            JSON response containing the listings with appended review details.
         """
         if not user_id:
             logger.warning("Missing 'user_id' parameter.")
@@ -478,6 +478,7 @@ class UsedCarListing:
             listing_ids = [str(listing['_id']) for listing in listings]
             logger.debug(f"Listing IDs: {listing_ids}")
             print(listing_ids)
+
             # Step 5: Query all reviews where listing_id matches
             seller_reviews_cursor = reviews_collection.find({
                 'listing_id': {"$in": listing_ids}
@@ -485,13 +486,21 @@ class UsedCarListing:
             seller_reviews = list(seller_reviews_cursor) 
             print(f"Number of reviews found: {len(seller_reviews)}")
 
-            # Create a mapping from listing_id to review_id
-            review_map = {str(review['listing_id']): str(review['_id']) for review in seller_reviews} 
+            # Create a mapping from listing_id to review details
+            review_map = {
+                str(review['listing_id']): {
+                    "review_id": str(review['_id']),
+                    "rating": review.get('rating', 0),
+                    "review": review.get('review', '')
+                }
+                for review in seller_reviews
+            } 
             logger.debug(f"Review map: {review_map}")
 
-            # Step 6: Append review_id to each listing
+            # Step 6: Append review details to each listing
             augmented_listings = []
             for listing in listings:
+                print(listing)
                 listing_id_str = str(listing['_id'])
                 augmented_listing = {
                     'listing_id': listing_id_str,
@@ -502,7 +511,10 @@ class UsedCarListing:
                     'views': listing.get('views', 0),
                     'shortlists': listing.get('shortlists', 0),
                     'created_at': listing.get('created_at').isoformat() if listing.get('created_at') else '',
-                    'review_id': review_map.get(listing_id_str, None)
+                    'review_id': review_map.get(listing_id_str, {}).get('review_id'),
+                    'rating': review_map.get(listing_id_str, {}).get('rating'),
+                    'review': review_map.get(listing_id_str, {}).get('review'),
+                    "agent_id": listing.get('agent_id', '')  
                 }
                 logger.debug(f"Augmented Listing: {augmented_listing}")
                 augmented_listings.append(augmented_listing)

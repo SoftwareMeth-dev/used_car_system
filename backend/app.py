@@ -20,6 +20,7 @@ from controllers.profile.search_profiles import search_profiles_bp
 
 from controllers.review.rate_review_agent import rate_review_agent_bp 
 from controllers.review.view_reviews import view_reviews_bp 
+from controllers.review.edit_review_agent import edit_review_agent_bp
 
 from controllers.used_car_listing.view_listing import view_listings_bp 
 from controllers.used_car_listing.create_listing import create_listing_bp 
@@ -39,6 +40,8 @@ from controllers.user.update_user import update_user_bp
 from controllers.user.suspend_user import suspend_user_bp
 from controllers.user.reenable_user import reenable_user_bp
 from controllers.user.search_users import search_users_bp
+
+
 
 
 
@@ -90,6 +93,7 @@ app.register_blueprint(view_reviews_bp)
 app.register_blueprint(loan_calculator_bp)
 app.register_blueprint(view_listings_bp)
 app.register_blueprint(user_reviews_bp)
+app.register_blueprint(edit_review_agent_bp)
 
 
 # Define centralized error handlers
