@@ -193,15 +193,6 @@ const AgentDashboard = () => {
         setListings(agentListings);
         setFilteredListings(agentListings);
 
-        // Extract unique Makes and Models
-        const makes = [...new Set(agentListings.map((listing) => listing.make))];
-        setAvailableMakes(makes);
-        setSelectedMakes(makes); // Default all makes selected
-
-        const models = [...new Set(agentListings.map((listing) => listing.model))];
-        setAvailableModels(models);
-        setSelectedModels(models); // Default all models selected
-
         // Determine Year Range
         const years = agentListings.map((listing) => listing.year);
         const minYear = years.length > 0 ? Math.min(...years) : 0;
@@ -539,24 +530,18 @@ const AgentDashboard = () => {
   const handleSearchListings = () => {
     let filtered = [...listings];
 
-    // Filter by Search Query (Make or Model)
-    if (listingSearchQuery.trim() !== '') {
-      const query = listingSearchQuery.trim().toLowerCase();
-      filtered = filtered.filter(
-        (listing) =>
-          listing.make.toLowerCase().includes(query) ||
-          listing.model.toLowerCase().includes(query)
-      );
-    }
-
     // Filter by Selected Makes
     if (selectedMakes.length > 0 && !selectedMakes.includes('All')) {
-      filtered = filtered.filter((listing) => selectedMakes.includes(listing.make));
+      filtered = filtered.filter((listing) => 
+        selectedMakes.some(
+          (make) => listing.make.toLowerCase().includes(make.toLowerCase())));
     }
 
     // Filter by Selected Models
     if (selectedModels.length > 0 && !selectedModels.includes('All')) {
-      filtered = filtered.filter((listing) => selectedModels.includes(listing.model));
+      filtered = filtered.filter((listing) => 
+        selectedModels.some(
+          (model) => listing.model.toLowerCase().includes(model.toLowerCase())));
     }
 
     // Filter by Year Range
@@ -603,48 +588,14 @@ const AgentDashboard = () => {
     const paginatedListings = filteredListings.slice(start, end);
 
     return (
-      <Box>
+      <Box sx={{ m:1 }}>
         {/* Search and Filters Section */}
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Search Listings
+            Search Used Car Listings
           </Typography>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Search by Make or Model"
-                variant="outlined"
-                fullWidth
-                value={listingSearchQuery}
-                onChange={(e) => setListingSearchQuery(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={8} sx={{ display: 'flex', gap: 2 }}>
-              {/* US #18 */}
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<SearchIcon />}
-                onClick={handleSearchListings}
-              >
-                Search
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleResetSearch}
-              >
-                Reset
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-
         {/* Advanced Filter Section */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Advanced Filters
-          </Typography>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <Grid container spacing={3}>
             {/* Make Filter */}
             <Grid item xs={12} md={3}>
@@ -725,12 +676,31 @@ const AgentDashboard = () => {
             </Grid>
           </Grid>
         </Box>
+        <Box sx={{ mt: 2, display: 'flex', gap: 2}}>
+          {/* US #18 */}
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SearchIcon />}
+            onClick={handleSearchListings}
+          >
+            Search
+          </Button>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleResetSearch}
+          >
+            Reset
+          </Button>
+        </Box>
+        </Box>
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Button
             variant="contained"
-            color="success"
+            color="primary"
             startIcon={<AddIcon />}
             onClick={() => {
               setOpenCreateListing(true);
@@ -772,8 +742,8 @@ const AgentDashboard = () => {
                       <TableCell>{new Date(listing.created_at).toLocaleString()}</TableCell>
                       <TableCell align="center">
                         <Button
-                          variant="outlined"
-                          color="primary"
+                          variant="contained"
+                          color="info"
                           startIcon={<EditIcon />}
                           onClick={() => {
                             setSelectedListing(listing);
@@ -840,8 +810,8 @@ const AgentDashboard = () => {
   // US #36
   const renderReviews = () => {
     return (
-      <Box>
-        <Typography variant="h5" gutterBottom>
+      <Box sx= {{ m:1 }}>
+        <Typography variant="h6" gutterBottom>
           Client Reviews
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -1022,7 +992,7 @@ const AgentDashboard = () => {
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
                 <CardContent sx={{ textAlign: 'center' }}>
                   <AddIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
-                  <Typography variant="h6">Manage Listings</Typography>
+                  <Typography variant="h6">View Used Car Listings</Typography>
                 </CardContent>
               </CardActionArea>
             </Card>
@@ -1072,7 +1042,7 @@ const AgentDashboard = () => {
       >
         <Toolbar>
           <Typography variant="h6" noWrap>
-            Agent Dashboard
+            Used Car Agent
           </Typography>
         </Toolbar>
         <Box sx={{ overflow: 'auto' }}>
@@ -1095,7 +1065,7 @@ const AgentDashboard = () => {
                 onClick={() => handleNavigation('listings')}
               >
                 <AddIcon sx={{ marginRight: 2 }} />
-                <ListItemText primary="Manage Listings" />
+                <ListItemText primary="Used Car Listings" />
               </ListItemButton>
             </ListItem>
 
@@ -1114,15 +1084,15 @@ const AgentDashboard = () => {
       </Drawer>
 
       {/* Main Content */}
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+      <Box component="main" sx={{ flexGrow: 1 }}>
         {/* AppBar with Logout Button */}
-        <AppBar position="static" sx={{ mb: 4, width: `calc(100% - ${drawerWidth}px)`, ml: `${drawerWidth}px` }}>
+        <AppBar position="static" sx={{ mb: 4 }}>
           <Toolbar>
             <Typography variant="h6" sx={{ flexGrow: 1 }}>
               {currentView === 'listings'
                 ? 'Used Car Listings'
                 : currentView === 'reviews'
-                ? 'Client Reviews'
+                ? 'Reviews'
                 : 'Dashboard'}
             </Typography>
             {/* US #20 */}
