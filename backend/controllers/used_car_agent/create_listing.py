@@ -1,5 +1,3 @@
-# backend/controllers/used_car_agent/create_listing_controller.py
-
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
 
@@ -15,7 +13,7 @@ class CreateListingController:
     def create_listing(self):
         """
         Endpoint to create a new used car listing.
-        Delegates processing to UsedCarListingModel.
+        Receives request data and delegates processing to UsedCarListingModel.
         """
         data = request.get_json()
         response, status_code = UsedCarListing.create_listing(data)

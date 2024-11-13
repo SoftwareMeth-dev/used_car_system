@@ -10,20 +10,20 @@ class RateReviewAgentController:
         self.register_routes()
 
     def register_routes(self):
-        # Dynamic route handling role from the URL
+        # Updated route to include user_id and listing_id
         rate_review_agent_bp.add_url_rule(
-            '/<role>/rate_review_agent',
+            '/<role>/rate_review_agent/<user_id>/<listing_id>',
             view_func=self.rate_review_agent,
             methods=['POST']
         )
 
-    def rate_review_agent(self, role):
+    def rate_review_agent(self, role, user_id, listing_id):
         """
-        Endpoint to rate and review agents based on the role specified in the URL.
+        Endpoint to rate and review agents based on the role, user_id, and listing_id specified in the URL.
         Delegates all processing to the ReviewModel.
         """
         data = request.get_json()
-        response, status_code = Review.rate_and_review_agent(role, data)
+        response, status_code = Review.rate_and_review_agent(role, user_id, listing_id, data)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes
