@@ -1,4 +1,3 @@
-// src/components/BuyerDashboard.js
 import React, { useState, useEffect } from 'react';
 import {
   AppBar,
@@ -14,6 +13,7 @@ import {
   ListItemSecondaryAction,
   Drawer,
   Divider,
+  Paper
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
@@ -21,19 +21,91 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import buyerController from '../controllers/BuyerController';
 
+function LoanCalculator() {
+  const [loanAmount, setLoanAmount] = useState('');
+  const [interestRate, setInterestRate] = useState('');
+  const [loanTerm, setLoanTerm] = useState('');
+  const [monthlyPayment, setMonthlyPayment] = useState(null);
 
-  
+  const handleCalculate = () => {
+    const payment = calculateMonthlyPayment(loanAmount, interestRate, loanTerm);
+    setMonthlyPayment(payment);
+  };
+
+  const calculateMonthlyPayment = (loanAmount, annualInterestRate, loanTermYears) => {
+    const principal = parseFloat(loanAmount);
+    const monthlyInterestRate = parseFloat(annualInterestRate) / 100 / 12;
+    const numberOfPayments = parseInt(loanTermYears) * 12;
+
+    if (isNaN(principal) || isNaN(monthlyInterestRate) || isNaN(numberOfPayments) || principal <= 0 || monthlyInterestRate < 0 || numberOfPayments <= 0) {
+      return 0;
+    }
+
+    return (principal * monthlyInterestRate) / (1 - Math.pow(1 + monthlyInterestRate, -numberOfPayments));
+  };
+
+  return (
+    <Box>
+      <Typography variant="h4" gutterBottom>Loan Calculator</Typography>
+      <Paper sx={{ padding: 3, mb: 3 }}>
+        <TextField
+          label="Loan Amount"
+          value={loanAmount}
+          onChange={(e) => setLoanAmount(e.target.value)}
+          variant="outlined"
+          fullWidth
+          sx={{ mb: 2 }}
+          type="number"
+        />
+        <TextField
+          label="Annual Interest Rate (%)"
+          value={interestRate}
+          onChange={(e) => setInterestRate(e.target.value)}
+          variant="outlined"
+          fullWidth
+          sx={{ mb: 2 }}
+          type="number"
+        />
+        <TextField
+          label="Loan Term (Years)"
+          value={loanTerm}
+          onChange={(e) => setLoanTerm(e.target.value)}
+          variant="outlined"
+          fullWidth
+          sx={{ mb: 2 }}
+          type="number"
+        />
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleCalculate}
+          fullWidth
+        >
+          Calculate
+        </Button>
+      </Paper>
+
+      {monthlyPayment !== null && (
+        <Paper sx={{ padding: 3 }}>
+          <Typography variant="h6">Estimated Monthly Payment</Typography>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="body1">${monthlyPayment.toFixed(2)}</Typography>
+        </Paper>
+      )}
+    </Box>
+  );
+}
+
 function BuyerDashboard() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [search1Query, setSearch1Query] = useState('');
   const [carListings, setCarListings] = useState([]);
   const [shortlist, setShortlist] = useState([]);
   const [filteredShortlist, setFilteredShortlist] = useState([]);
   const [username, setUsername] = useState('Guest');
   const [selectedPage, setSelectedPage] = useState('listings');
-  const LoanCalculator = () => {
-    return <div>Loan Calculator Page</div>;
-  };
+  const [reviews, setReviews] = useState({});
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -50,8 +122,21 @@ function BuyerDashboard() {
       try {
         const listingsData = await buyerController.getListings();
         setCarListings(listingsData);
+          // set the array
+          listingsData.forEach(async (listing) => {
+            const reviewData = await buyerController.fetchReviews(listing.agent_id);
+            if (reviewData && reviewData.data && reviewData.data.reviews.length > 0) {
+              setReviews((prev) => ({
+                ...prev,
+                [listing.agent_id]: {
+                  average_rating: reviewData.data.average_rating,
+                  reviews: reviewData.data.reviews
+                }
+              }));
+            }
+          });
 
-        const shortlistData = await buyerController.getShortlist();
+        const shortlistData = await buyerController.getShortlist(username);
         setShortlist(shortlistData);
         setFilteredShortlist(shortlistData);
       } catch (error) {
@@ -76,16 +161,24 @@ function BuyerDashboard() {
     }
   };
 
+  const handleShortlistSearch = async () => {
+    try {
+      const results = await buyerController.searchShortlist(username, search1Query);
+      setShortlist(results);
+      setFilteredShortlist(results);
+    } catch (error) {
+      console.error('Error searching shortlist:', error);
+    }
+  };
+
   const handleAddToShortlist = async (listingId) => {
     try {
-      console.log(listingId)
       const data = {
         user_id: username,
-        listing_id:listingId
-        }
+        listing_id: listingId
+      };
       await buyerController.saveToShortlist(data);
       const updatedShortlist = await buyerController.getShortlist(username);
-      console.log(updatedShortlist);
       setShortlist(updatedShortlist);
       setFilteredShortlist(updatedShortlist);
     } catch (error) {
@@ -93,25 +186,11 @@ function BuyerDashboard() {
     }
   };
 
-  const handleSearchShortlist = async () => {
-    try {
-      const results = searchQuery
-        ? await buyerController.searchShortlist(searchQuery)
-        : shortlist;
-      setFilteredShortlist(results);
-    } catch (error) {
-      console.error('Error searching shortlist:', error);
-    }
-  };
-
-  // Render Car Listings, Shortlist, or Loan Calculator based on selected page
   const renderContent = () => {
     if (selectedPage === 'listings') {
       return (
         <Box>
-          <Typography variant="h5" sx={{ mt: 4 }}>
-            Car Listings
-          </Typography>
+          <Typography variant="h5" sx={{ mt: 4 }}>Car Listings</Typography>
           <TextField
             label="Search Listings"
             variant="outlined"
@@ -125,7 +204,7 @@ function BuyerDashboard() {
           </Button>
           <List>
             {carListings.map((listing) => (
-              <ListItem key={listing.id}>
+              <ListItem key={listing.id} sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                 <ListItemText
                   primary={`${listing.make} ${listing.model} - $${listing.price}`}
                 />
@@ -137,6 +216,29 @@ function BuyerDashboard() {
                     Shortlist
                   </Button>
                 </ListItemSecondaryAction>
+  
+                <Box sx={{ mt: 2, width: '100%' }}>
+                  <Typography variant="subtitle1">Agent Reviews:</Typography>
+                  {reviews[listing.agent_id] ? (
+                    <>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        Average Rating: {reviews[listing.agent_id].average_rating}/5
+                      </Typography>
+                      {reviews[listing.agent_id].reviews.map((review, index) => (
+                        <Paper key={review._id} sx={{ p: 2, mt: 1 }}>
+                          <Typography variant="body2"><strong>Rating:</strong> {review.rating}/5</Typography>
+                          <Typography variant="body2"><strong>Comment:</strong> {review.review}</Typography>
+                          <Typography variant="body2"><strong>Reviewer Role:</strong> {review.reviewer_role}</Typography>
+                          <Typography variant="body2" color="textSecondary">
+                            <strong>Date:</strong> {new Date(review.created_at).toLocaleDateString()}
+                          </Typography>
+                        </Paper>
+                      ))}
+                    </>
+                  ) : (
+                    <Typography variant="body2">No reviews available.</Typography>
+                  )}
+                </Box>
               </ListItem>
             ))}
           </List>
@@ -145,18 +247,16 @@ function BuyerDashboard() {
     } else if (selectedPage === 'shortlist') {
       return (
         <Box>
-          <Typography variant="h5" sx={{ mt: 4 }}>
-            Shortlist
-          </Typography>
+          <Typography variant="h5" sx={{ mt: 4 }}>Shortlist</Typography>
           <TextField
             label="Search Shortlist"
             variant="outlined"
             fullWidth
             sx={{ mt: 2 }}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={search1Query}
+            onChange={(e) => setSearch1Query(e.target.value)}
           />
-          <Button variant="contained" sx={{ mt: 2 }} onClick={handleSearchShortlist}>
+          <Button variant="contained" sx={{ mt: 2 }} onClick={handleShortlistSearch}>
             Search
           </Button>
           <List>
@@ -169,10 +269,10 @@ function BuyerDashboard() {
                   </ListItem>
                 ))
               : (
-                  <Typography variant="body2" sx={{ mt: 2 }}>
-                    No cars in your shortlist.
-                  </Typography>
-                )}
+                <Typography variant="body2" sx={{ mt: 2 }}>
+                  No cars in your shortlist.
+                </Typography>
+              )}
           </List>
         </Box>
       );
@@ -180,6 +280,7 @@ function BuyerDashboard() {
       return <LoanCalculator />;
     }
   };
+  
 
   return (
     <div>
@@ -197,7 +298,6 @@ function BuyerDashboard() {
         </Toolbar>
       </AppBar>
       <Box sx={{ display: 'flex' }}>
-        {/* Left Drawer Navigation */}
         <Drawer
           anchor="left"
           variant="permanent"
@@ -228,7 +328,6 @@ function BuyerDashboard() {
           </List>
         </Drawer>
 
-        {/* Main Content Area */}
         <Container>
           <Box sx={{ mt: 4, ml: 3 }}>{renderContent()}</Box>
         </Container>
@@ -238,4 +337,3 @@ function BuyerDashboard() {
 }
 
 export default BuyerDashboard;
-

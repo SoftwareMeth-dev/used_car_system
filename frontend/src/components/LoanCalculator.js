@@ -14,6 +14,23 @@ const LoanCalculator = () => {
     setMonthlyPayment(payment);
   };
 
+  const loanCalculatorController = {
+    calculateMonthlyPayment: (loanAmount, annualInterestRate, loanTermYears) => {
+      const principal = parseFloat(loanAmount);
+      const monthlyInterestRate = parseFloat(annualInterestRate) / 100 / 12;
+      const numberOfPayments = parseInt(loanTermYears) * 12;
+  
+      if (isNaN(principal) || isNaN(monthlyInterestRate) || isNaN(numberOfPayments) || principal <= 0 || monthlyInterestRate < 0 || numberOfPayments <= 0) {
+        return 0;
+      }
+  
+      const monthlyPayment = (principal * monthlyInterestRate) /
+        (1 - Math.pow(1 + monthlyInterestRate, -numberOfPayments));
+        
+      return monthlyPayment;
+    }
+  };
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Loan Calculator</Typography>
@@ -26,6 +43,7 @@ const LoanCalculator = () => {
           variant="outlined"
           fullWidth
           sx={{ mb: 2 }}
+          type="number"
         />
         <TextField
           label="Annual Interest Rate (%)"
@@ -34,6 +52,7 @@ const LoanCalculator = () => {
           variant="outlined"
           fullWidth
           sx={{ mb: 2 }}
+          type="number"
         />
         <TextField
           label="Loan Term (Years)"
@@ -42,6 +61,7 @@ const LoanCalculator = () => {
           variant="outlined"
           fullWidth
           sx={{ mb: 2 }}
+          type="number"
         />
         <Button
           variant="contained"

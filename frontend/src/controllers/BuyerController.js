@@ -27,7 +27,7 @@ class BuyerController {
     try {
       const response = await axios.get(`${API_BASE_URL}/view_listings`);
       return response.data.map(
-        listing => new CarListing(listing._id, listing.make, listing.model, listing.price, listing.details)
+        listing => new CarListing(listing._id, listing.make, listing.model, listing.price, listing.details, listing.agent_id)
       );
     } catch (error) {
       console.error("Error fetching listings:", error);
@@ -63,6 +63,7 @@ class BuyerController {
   }
 
   async getShortlist(username) {
+    console.log(username)
     if (!this.buyer) await this.fetchBuyerData();
     if (!this.buyer) {
       console.error("No buyer data available to fetch shortlist.");
@@ -70,23 +71,34 @@ class BuyerController {
     }
     try {
       const response = await axios.get(`${API_BASE_URL}/view_shortlist`, { params: { user_id: username } });
-      return response.data.map(
-        listing => new CarListing(listing._id, listing.make, listing.model, listing.price, listing.details)
-      );
+
+      const car = await axios.get(`${API_BASE_URL}/view_listings`);
+
+      console.log(response.data);
+      // Use the response data as the array of shortlisted IDs
+      const shortlistedIds = response.data;
+
+      // Filter car listings based on shortlisted IDs
+      const shortlistedCars = car.data
+        .filter(listing => shortlistedIds.includes(listing._id))
+        .map(listing => new CarListing(listing._id, listing.make, listing.model, listing.price, listing.details));
+      return shortlistedCars;
     } catch (error) {
       console.error("Error fetching shortlist:", error);
       return [];
     }
   }
 
-  async searchShortlist(query) {
+  async searchShortlist(username,query) {
+    console.log(query)
     if (!this.buyer) await this.fetchBuyerData();
+    console.log(0)
     if (!this.buyer) {
       console.error("No buyer data available to search shortlist.");
       return [];
     }
     try {
-      const response = await axios.get(`${API_BASE_URL}/search_shortlist`, { params: { user_id: this.buyer.id, query } });
+      const response = await axios.get(`${API_BASE_URL}/search_shortlist`, { params: { user_id: username, query } });
       return response.data.map(
         listing => new CarListing(listing._id, listing.make, listing.model, listing.price, listing.details)
       );
@@ -95,6 +107,18 @@ class BuyerController {
       return [];
     }
   }
+
+
+  async fetchReviews (agentId) {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/used_car_agent/view_reviews/${agentId}`);
+      console.log(response)
+      return response
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+    }
+  };
+
 
   logout() {
     localStorage.removeItem('user');  // Remove user data from localStorage
