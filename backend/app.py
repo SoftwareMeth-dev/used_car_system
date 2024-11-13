@@ -4,35 +4,45 @@ from flask_cors import CORS
 
 # Import all Blueprints
 from controllers.auth import auth_bp
-from controllers.user_admin.get_user_from_id import get_user_from_id_bp
-from controllers.user_admin.create_user import create_user_bp
-from controllers.user_admin.view_users import view_users_bp
-from controllers.user_admin.update_user import update_user_bp
-from controllers.user_admin.suspend_user import suspend_user_bp
-from controllers.user_admin.reenable_user import reenable_user_bp
-from controllers.user_admin.search_users import search_users_bp
-from controllers.user_admin.create_profile import create_profile_bp
-from controllers.user_admin.view_profiles import view_profiles_bp
-from controllers.user_admin.update_profile import update_profile_bp
-from controllers.user_admin.suspend_profile import suspend_profile_bp
-from controllers.user_admin.reenable_profile import reenable_profile_bp
-from controllers.user_admin.search_profiles import search_profiles_bp
-from controllers.used_car_agent.create_listing import create_listing_bp 
-from controllers.used_car_agent.update_listing import update_listing_bp
-from controllers.used_car_agent.delete_listing import delete_listing_bp
-from controllers.used_car_agent.search_listings import search_listings_bp
-from controllers.buyer.search_cars import search_cars_bp 
-from controllers.buyer.save_listing import save_listing_bp
-from controllers.buyer.search_shortlist import search_shortlist_bp
-from controllers.buyer.view_shortlist import view_shortlist_bp
-from controllers.seller.track_view import track_view_bp
-from controllers.seller.track_shortlist import track_shortlist_bp
-from controllers.seller.get_reviews import get_reviews_bp
-from controllers.seller.get_metrics import get_metrics_bp
+
+from controllers.buyer_listing.save_listing import save_listing_bp
+from controllers.buyer_listing.search_shortlist import search_shortlist_bp
+from controllers.buyer_listing.view_shortlist import view_shortlist_bp
+
+from controllers.loan_calculator.loan_calculator import loan_calculator_bp 
+
+from controllers.profile.create_profile import create_profile_bp
+from controllers.profile.view_profiles import view_profiles_bp
+from controllers.profile.update_profile import update_profile_bp
+from controllers.profile.suspend_profile import suspend_profile_bp
+from controllers.profile.reenable_profile import reenable_profile_bp
+from controllers.profile.search_profiles import search_profiles_bp
+
 from controllers.review.rate_review_agent import rate_review_agent_bp 
 from controllers.review.view_reviews import view_reviews_bp 
-from controllers.buyer.loan_calculator import loan_calculator_bp 
-from controllers.user_admin.view_listing import view_listings_bp 
+
+from controllers.used_car_listing.view_listing import view_listings_bp 
+from controllers.used_car_listing.create_listing import create_listing_bp 
+from controllers.used_car_listing.update_listing import update_listing_bp
+from controllers.used_car_listing.delete_listing import delete_listing_bp
+from controllers.used_car_listing.search_listings import search_listings_bp
+from controllers.used_car_listing.search_cars import search_cars_bp 
+from controllers.used_car_listing.track_view import track_view_bp
+from controllers.used_car_listing.track_shortlist import track_shortlist_bp
+from controllers.used_car_listing.get_reviews import get_reviews_bp
+from controllers.used_car_listing.get_metrics import get_metrics_bp
+
+from controllers.user.get_user_from_id import get_user_from_id_bp
+from controllers.user.create_user import create_user_bp
+from controllers.user.view_users import view_users_bp
+from controllers.user.update_user import update_user_bp
+from controllers.user.suspend_user import suspend_user_bp
+from controllers.user.reenable_user import reenable_user_bp
+from controllers.user.search_users import search_users_bp
+
+
+
+
 from utils.listings import listings_bp
 
 from utils.db import init_db

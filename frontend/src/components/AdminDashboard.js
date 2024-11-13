@@ -205,11 +205,11 @@ const AdminDashboard = () => {
   const fetchProfiles = async (searchQuery = '') => {
     setLoading(true);
     try {
-      let endpoint = `${config.API_BASE_URL}/user_admin/view_profiles`;
+      let endpoint = `${config.API_BASE_URL}/view_profiles`;
       let params = {};
   
       if (searchQuery.trim() !== '') {
-        endpoint = `${config.API_BASE_URL}/user_admin/search_profiles`;
+        endpoint = `${config.API_BASE_URL}/search_profiles`;
         params = { query: searchQuery };
       }
   
