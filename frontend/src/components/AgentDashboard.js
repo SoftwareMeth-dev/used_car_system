@@ -273,7 +273,7 @@ const AgentDashboard = () => {
 
     setLoading(true);
     try {
-      const endpoint = `${config.API_BASE_URL}/used_car_agent/view_reviews/${userID}`;
+      const endpoint = `${config.API_BASE_URL}/view_reviews/${userID}`;
       const response = await axios.get(endpoint);
 
       if (response.status === 200) {
