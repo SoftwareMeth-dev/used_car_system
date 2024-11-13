@@ -128,6 +128,20 @@ const AgentDashboard = () => {
   const [sellers, setSellers] = useState([]); // List of sellers
   const [selectedSellerUsername, setSelectedSellerUsername] = useState(''); // Selected seller's username
 
+
+  const titleMap = {
+    landing: 'Agent Dashboard',
+    listings: 'Agent Dashboard - Listings',
+    reviews: 'Agent Dashboard - Reviews', 
+  };
+  // Set the document title based on currentView
+  useEffect(() => {
+    const title = titleMap[currentView] || 'Agent Dashboard';
+    document.title = title;
+  }, [currentView]);
+
+
+
   // Retrieve Agent Information from localStorage
   const getAgentInfo = () => {
     const user = localStorage.getItem('user');

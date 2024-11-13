@@ -147,6 +147,18 @@ const AdminDashboard = () => {
 
   const [openReenableProfile, setOpenReenableProfile] = useState(false);
   const [profileToReenable, setProfileToReenable] = useState(null);
+    
+  const titleMap = {
+    landing: 'Admin Dashboard',
+    users: 'Admin Dashboard - Users',
+    profiles: 'Admin Dashboard - Profiles', 
+  };
+  // Set the document title based on currentView
+  useEffect(() => {
+    const title = titleMap[currentView] || 'Admin Dashboard';
+    document.title = title;
+  }, [currentView]);
+
 
   // Retrieve Admin Username from localStorage
   const getUsername = () => {
