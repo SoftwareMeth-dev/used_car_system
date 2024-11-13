@@ -841,25 +841,7 @@ const SellerDashboard = () => {
     const paginatedListings = filteredListings.slice(start, end);
 
     return (
-      <Box>
-        {/* Search Bar */}
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <TextField
-            label="Search by Make or Model"
-            variant="outlined"
-            value={listingSearchQuery}
-            onChange={(e) => setListingSearchQuery(e.target.value)}
-            fullWidth
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<SearchIcon />}
-            onClick={handleSearchListings}
-          >
-            Search
-          </Button>
-        </Box>
+      <Box> 
 
         {/* Advanced Filter Section */}
         <Box sx={{ mb: 4 }}>

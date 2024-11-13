@@ -12,7 +12,7 @@ class ViewReviewsController:
     def register_routes(self):
         # Route for agents to view their reviews
         view_reviews_bp.add_url_rule(
-            '/used_car_agent/view_reviews/<agent_id>',
+            '/view_reviews/<agent_id>',
             view_func=self.view_reviews,
             methods=['GET']
         )
