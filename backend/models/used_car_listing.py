@@ -16,6 +16,7 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 used_car_collection = db['used_car_listings']
+reviews_collection = db['reviews']  # Added Reviews Collection
 
 def serialize_listing(listing):
     if not listing:
@@ -106,8 +107,8 @@ class UsedCarListing:
         """
         try:
             oid = ObjectId(listing_id)
-        except InvalidId:
-            logger.warning(f"Invalid listing_id format: {listing_id}")
+        except Exception as e:
+            logger.error(f"Invalid listing_id format: {listing_id}. Error: {e}")
             return {"error": "Invalid listing_id."}, 400  # Bad Request
 
         try:
@@ -152,7 +153,7 @@ class UsedCarListing:
             if not listing:
                 logger.warning(f"Listing not found with ID: {listing_id}")
                 return {"error": "Listing not found."}, 404  # Not Found
-            if listing.get('seller_id') != validated_data.get('seller_id', listing.get('seller_id')):
+            if listing.get('seller_id') != ObjectId(validated_data.get('seller_id', listing.get('seller_id'))):
                 logger.warning(f"Agent {validated_data.get('seller_id')} does not own listing {listing_id}")
                 return {"error": "You do not have permission to update this listing."}, 403  # Forbidden
 
@@ -246,3 +247,300 @@ class UsedCarListing:
         except Exception as e:
             logger.exception(f"Exception during advanced searching listings: {e}")
             return {"error": "Failed to search listings."}, 500  # Internal Server Error
+
+    @staticmethod
+    def track_view(data):
+        """
+        Increments the view count for a listing.
+        Expects data to contain 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
+        """
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            logger.warning("Missing 'listing_id' in request data.")
+            return {"error": "Missing 'listing_id'."}, 400  # Bad Request
+
+        try:
+            # Update the used_car_collection by incrementing 'views'
+            result = used_car_collection.update_one(
+                {"_id": ObjectId(listing_id)},
+                {"$inc": {"views": 1}}
+            )
+
+            if result.matched_count == 0:
+                logger.warning(f"Listing with listing_id {listing_id} not found.")
+                return {"error": "Listing not found."}, 404  # Not Found
+
+            logger.info(f"View tracked for listing_id: {listing_id}")
+            return {"success": True}, 200
+
+        except Exception as e:
+            logger.exception(f"Error tracking view for listing_id {listing_id}: {e}")
+            return {"success": False, "error": "Failed to track view."}, 500
+
+    @staticmethod
+    def track_shortlist(data):
+        """
+        Increments the shortlist count for a listing.
+        Expects data to contain 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
+        """
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            logger.warning("Missing 'listing_id' in request data.")
+            return {"error": "Missing 'listing_id'."}, 400  # Bad Request
+
+        try:
+            # Update the used_car_collection by incrementing 'shortlists'
+            result = used_car_collection.update_one(
+                {"_id": ObjectId(listing_id)},
+                {"$inc": {"shortlists": 1}}
+            )
+
+            if result.matched_count == 0:
+                logger.warning(f"Listing with listing_id {listing_id} not found.")
+                return {"error": "Listing not found."}, 404  # Not Found
+
+            logger.info(f"Shortlist tracked for listing_id: {listing_id}")
+            return {"success": True}, 200
+
+        except Exception as e:
+            logger.exception(f"Error tracking shortlist for listing_id {listing_id}: {e}")
+            return {"success": False, "error": "Failed to track shortlist."}, 500
+
+    @staticmethod
+    def get_metrics(listing_id):
+        """
+        Retrieves metrics for a specific listing.
+        Returns a tuple of (response_dict, status_code).
+        """
+        if not listing_id:
+            logger.warning("Missing 'listing_id' parameter.")
+            return {"error": "Missing 'listing_id' parameter."}, 400  # Bad Request
+
+        try:
+            listing = used_car_collection.find_one({"_id": ObjectId(listing_id)})
+            if listing:
+                metrics = {
+                    "views": listing.get("views", 0),
+                    "shortlists": listing.get("shortlists", 0)
+                }
+                logger.info(f"Metrics retrieved for listing_id: {listing_id}")
+                return {"metrics": metrics}, 200
+            else:
+                logger.warning(f"No listing found for listing_id: {listing_id}")
+                return {"error": "Listing not found."}, 404  # Not Found
+        except Exception as e:
+            logger.exception(f"Error retrieving metrics for listing_id {listing_id}: {e}")
+            return {"error": "Failed to retrieve metrics."}, 500
+
+    @staticmethod
+    def get_metrics_by_seller(seller_id):
+        """
+        Retrieves metrics for all listings of a specific seller.
+        Returns a tuple of (response_dict, status_code).
+        """
+        if not seller_id:
+            logger.warning("Missing 'seller_id' parameter.")
+            return {"error": "Missing 'seller_id' parameter."}, 400  # Bad Request
+
+        try:
+            # Step 1: Retrieve all listings for the seller
+            listings_cursor = used_car_collection.find({"seller_id": ObjectId(seller_id)})
+            listings = list(listings_cursor)
+
+            if not listings:
+                logger.warning(f"No listings found for seller_id: {seller_id}")
+                return {"error": "No listings found for the provided seller_id."}, 404  # Not Found
+
+            # Step 2: Combine listings with their metrics
+            combined_listings = []
+            for listing in listings:
+                combined_listing = {
+                    "listing_id": str(listing.get("_id", "")),
+                    "make": listing.get("make", ""),
+                    "model": listing.get("model", ""),
+                    "year": listing.get("year", ""),
+                    "price": listing.get("price", 0),
+                    "views": listing.get("views", 0),
+                    "shortlists": listing.get("shortlists", 0),
+                    "created_at": listing.get("created_at").isoformat() if listing.get("created_at") else "",
+                    # Add other fields as necessary
+                }
+                combined_listings.append(combined_listing)
+
+            logger.info(f"Metrics retrieved for seller_id: {seller_id}")
+            return {"listings": combined_listings}, 200
+
+        except Exception as e:
+            logger.exception(f"Error retrieving metrics for seller_id {seller_id}: {e}")
+            return {"error": "Failed to retrieve metrics for the seller."}, 500
+
+    @staticmethod
+    def get_listings_with_reviews(seller_id):
+        """
+        Retrieves all listings by the seller and appends the corresponding review_id if available.
+
+        Parameters:
+            seller_id (str): The ObjectId string of the seller.
+
+        Returns:
+            JSON response containing the listings with appended review_id.
+        """
+        try:
+            # Step 1: Validate and convert seller_id to ObjectId
+            seller_oid = (seller_id)
+            logger.debug(f"Converted seller_id to ObjectId: {seller_oid}")
+        except (InvalidId, TypeError) as e:
+            logger.error(f"Invalid seller_id format: {seller_id}. Error: {e}")
+            return {"error": "Invalid seller_id format."}, 400  # Bad Request
+
+        try:
+            # Step 2: Query all listings by the seller
+            seller_listings_cursor = used_car_collection.find({'seller_id': seller_oid})
+            seller_listings = list(seller_listings_cursor)
+            logger.debug(f"Number of listings found: {len(seller_listings)}")
+
+            if not seller_listings:
+                logger.info(f"No listings found for seller_id: {seller_id}")
+                return {"message": "No listings found for this seller.", "listings": []}, 200  # OK
+
+            # Extract listing_ids for querying reviews
+            listing_ids = [listing['_id'] for listing in seller_listings]
+            logger.debug(f"Listing IDs: {listing_ids}")
+
+            # Step 3: Query all reviews where reviewer_id matches seller_id
+            seller_reviews_cursor = reviews_collection.find({
+                'reviewer_id': seller_oid, 
+            })
+            seller_reviews = list(seller_reviews_cursor) 
+            logger.debug(f"Number of reviews found: {len(seller_reviews)}")
+
+            # Create a mapping from listing_id to review_id
+            review_map = {str(review['listing_id']): str(review['_id']) for review in seller_reviews} 
+            logger.debug(f"Review map: {review_map}")
+
+            # Step 4: Append review_id to each listing
+            augmented_listings = []
+            for listing in seller_listings:
+                listing_id_str = str(listing['_id'])
+                augmented_listing = {
+                    'listing_id': listing_id_str,
+                    'make': listing.get('make', ''),
+                    'model': listing.get('model', ''),
+                    'year': listing.get('year', ''),
+                    'price': listing.get('price', 0),
+                    'views': listing.get('views', 0),
+                    'shortlists': listing.get('shortlists', 0),
+                    'created_at': listing.get('created_at').isoformat() if listing.get('created_at') else '',
+                    'review_id': review_map.get(listing_id_str, None)
+                }
+                logger.debug(f"Augmented Listing: {augmented_listing}")
+                augmented_listings.append(augmented_listing)
+
+            logger.info(f"Retrieved {len(augmented_listings)} listings for seller_id: {seller_id}")
+            return {"listings": augmented_listings}, 200  # OK
+
+        except Exception as e:
+            logger.exception(f"Error retrieving listings with reviews for seller_id {seller_id}: {e}")
+            return {"error": "Failed to retrieve listings with reviews."}, 500  # Internal Server Error
+
+    @staticmethod
+    def track_shortlist(data):
+        """
+        Increments the shortlist count for a listing.
+        Expects data to contain 'listing_id'.
+        Returns a tuple of (response_dict, status_code).
+        """
+        listing_id = data.get('listing_id')
+        if not listing_id:
+            logger.warning("Missing 'listing_id' in request data.")
+            return {"error": "Missing 'listing_id'."}, 400  # Bad Request
+
+        try:
+            # Update the used_car_collection by incrementing 'shortlists'
+            result = used_car_collection.update_one(
+                {"_id": ObjectId(listing_id)},
+                {"$inc": {"shortlists": 1}}
+            )
+
+            if result.matched_count == 0:
+                logger.warning(f"Listing with listing_id {listing_id} not found.")
+                return {"error": "Listing not found."}, 404  # Not Found
+
+            logger.info(f"Shortlist tracked for listing_id: {listing_id}")
+            return {"success": True}, 200
+
+        except Exception as e:
+            logger.exception(f"Error tracking shortlist for listing_id {listing_id}: {e}")
+            return {"success": False, "error": "Failed to track shortlist."}, 500
+
+    @staticmethod
+    def get_metrics(listing_id):
+        """
+        Retrieves metrics for a specific listing.
+        Returns a tuple of (response_dict, status_code).
+        """
+        if not listing_id:
+            logger.warning("Missing 'listing_id' parameter.")
+            return {"error": "Missing 'listing_id' parameter."}, 400  # Bad Request
+
+        try:
+            listing = used_car_collection.find_one({"_id": ObjectId(listing_id)})
+            if listing:
+                metrics = {
+                    "views": listing.get("views", 0),
+                    "shortlists": listing.get("shortlists", 0)
+                }
+                logger.info(f"Metrics retrieved for listing_id: {listing_id}")
+                return {"metrics": metrics}, 200
+            else:
+                logger.warning(f"No listing found for listing_id: {listing_id}")
+                return {"error": "Listing not found."}, 404  # Not Found
+        except Exception as e:
+            logger.exception(f"Error retrieving metrics for listing_id {listing_id}: {e}")
+            return {"error": "Failed to retrieve metrics."}, 500
+
+    @staticmethod
+    def get_metrics_by_seller(seller_id):
+        """
+        Retrieves metrics for all listings of a specific seller.
+        Returns a tuple of (response_dict, status_code).
+        """
+        if not seller_id:
+            logger.warning("Missing 'seller_id' parameter.")
+            return {"error": "Missing 'seller_id' parameter."}, 400  # Bad Request
+
+        try:
+            # Step 1: Retrieve all listings for the seller
+            listings_cursor = used_car_collection.find({"seller_id": ObjectId(seller_id)})
+            listings = list(listings_cursor)
+
+            if not listings:
+                logger.warning(f"No listings found for seller_id: {seller_id}")
+                return {"error": "No listings found for the provided seller_id."}, 404  # Not Found
+
+            # Step 2: Combine listings with their metrics
+            combined_listings = []
+            for listing in listings:
+                combined_listing = {
+                    "listing_id": str(listing.get("_id", "")),
+                    "make": listing.get("make", ""),
+                    "model": listing.get("model", ""),
+                    "year": listing.get("year", ""),
+                    "price": listing.get("price", 0),
+                    "views": listing.get("views", 0),
+                    "shortlists": listing.get("shortlists", 0),
+                    "created_at": listing.get("created_at").isoformat() if listing.get("created_at") else "",
+                    # Add other fields as necessary
+                }
+                combined_listings.append(combined_listing)
+
+            logger.info(f"Metrics retrieved for seller_id: {seller_id}")
+            return {"listings": combined_listings}, 200
+
+        except Exception as e:
+            logger.exception(f"Error retrieving metrics for seller_id {seller_id}: {e}")
+            return {"error": "Failed to retrieve metrics for the seller."}, 500
+
+ 
