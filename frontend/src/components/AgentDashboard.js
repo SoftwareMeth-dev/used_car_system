@@ -9,32 +9,32 @@ import {
   DialogContent,
   DialogTitle,
   Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Snackbar,
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TablePagination,
   TextField,
   Typography,
   AppBar,
   Toolbar,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TablePagination,
-  Snackbar,
-  Alert,
+  CircularProgress,
   Card,
   CardActionArea,
   CardContent,
   Grid,
   Rating,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -57,17 +57,6 @@ const formatLabel = (str) => {
     .join(' ');
 };
 
-// Define available models, years, and price ranges for filtering
-const availableModels = ['Sedan', 'SUV', 'Coupe', 'Hatchback', 'Convertible', 'Truck', 'Van'];
-const availableYears = Array.from({ length: 30 }, (_, i) => new Date().getFullYear() - i);
-const priceRanges = [
-  { label: '$0 - $10,000', min: 0, max: 10000 },
-  { label: '$10,001 - $20,000', min: 10001, max: 20000 },
-  { label: '$20,001 - $30,000', min: 20001, max: 30000 },
-  { label: '$30,001 - $40,000', min: 30001, max: 40000 },
-  { label: '$40,001+', min: 40001, max: Infinity },
-];
-
 const AgentDashboard = () => {
   const navigate = useNavigate();
 
@@ -87,14 +76,28 @@ const AgentDashboard = () => {
   const [listings, setListings] = useState([]);
   const [filteredListings, setFilteredListings] = useState([]); // To store filtered listings
   const [listingSearchQuery, setListingSearchQuery] = useState('');
-  const [listingModelFilter, setListingModelFilter] = useState('');
-  const [listingYearFilter, setListingYearFilter] = useState('');
-  const [listingPriceRangeFilter, setListingPriceRangeFilter] = useState('');
+
+  // Dynamic Filters
+  const [availableMakes, setAvailableMakes] = useState([]);
+  const [selectedMakes, setSelectedMakes] = useState([]);
+
+  const [availableModels, setAvailableModels] = useState([]);
+  const [selectedModels, setSelectedModels] = useState([]);
+
+  const [yearRange, setYearRange] = useState([0, 0]);
+  const [selectedYearRange, setSelectedYearRange] = useState([0, 0]);
+
+  const [priceRange, setPriceRange] = useState([0, 0]);
+  const [selectedPriceRange, setSelectedPriceRange] = useState([0, 0]);
+
   const [listingPage, setListingPage] = useState(0);
   const [listingRowsPerPage, setListingRowsPerPage] = useState(5);
 
   // States for Reviews
-  const [reviews, setReviews] = useState([]);
+  const [allReviews, setAllReviews] = useState([]);
+  const [filteredReviews, setFilteredReviews] = useState([]);
+  const [selectedReviewRole, setSelectedReviewRole] = useState('');
+  const [reviewerRoles, setReviewerRoles] = useState([]);
   const [averageRating, setAverageRating] = useState(null);
 
   // States for Dialogs
@@ -104,6 +107,7 @@ const AgentDashboard = () => {
     model: '',
     year: '',
     price: '',
+    seller_username: '',
   });
   const [listingErrors, setListingErrors] = useState({});
 
@@ -119,6 +123,10 @@ const AgentDashboard = () => {
 
   const [openDeleteListing, setOpenDeleteListing] = useState(false);
   const [listingToDelete, setListingToDelete] = useState(null);
+
+  // States for Sellers
+  const [sellers, setSellers] = useState([]); // List of sellers
+  const [selectedSellerUsername, setSelectedSellerUsername] = useState(''); // Selected seller's username
 
   // Retrieve Agent Information from localStorage
   const getAgentInfo = () => {
@@ -158,7 +166,7 @@ const AgentDashboard = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Fetch Listings (with optional search query)
+  // Fetch Listings and Dynamically Set Filters
   const fetchListings = async () => {
     if (!userID) {
       setSnackbar({
@@ -180,10 +188,24 @@ const AgentDashboard = () => {
       if (response.status === 200) {
         // Frontend filter to ensure only agent's listings are displayed
         const agentListings = response.data.listings.filter(
-          (listing) => listing.seller_id === userID
+          (listing) => listing.agent_id === userID
         );
         setListings(agentListings);
         setFilteredListings(agentListings);
+
+        // Determine Year Range
+        const years = agentListings.map((listing) => listing.year);
+        const minYear = years.length > 0 ? Math.min(...years) : 0;
+        const maxYear = years.length > 0 ? Math.max(...years) : 0;
+        setYearRange([minYear, maxYear]);
+        setSelectedYearRange([minYear, maxYear]);
+
+        // Determine Price Range
+        const prices = agentListings.map((listing) => listing.price);
+        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+        const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+        setPriceRange([minPrice, maxPrice]);
+        setSelectedPriceRange([minPrice, maxPrice]);
       }
     } catch (error) {
       console.error('Error fetching listings:', error);
@@ -197,7 +219,47 @@ const AgentDashboard = () => {
     }
   };
 
-  // Fetch Reviews and Average Rating
+  // Fetch Sellers from Backend
+  const fetchSellers = async () => {
+    setLoading(true);
+    try {
+      // Adjust the params based on your backend implementation
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_users`, {
+        params: { role: 'seller' }, // Assuming the backend can filter by role
+      });
+
+      if (response.status === 200) {
+        setSellers(response.data.users);
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to fetch sellers.',
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching sellers:', error);
+      setSnackbar({
+        open: true,
+        message: 'An error occurred while fetching sellers.',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate Average Rating
+  const calculateAverageRating = (reviews) => {
+    if (reviews.length === 0) {
+      setAverageRating(null);
+      return;
+    }
+    const total = reviews.reduce((acc, review) => acc + review.rating, 0);
+    setAverageRating(total / reviews.length);
+  };
+
+  // Fetch Reviews and Extract Reviewer Roles
   const fetchReviews = async () => {
     if (!userID) { // Use userID for identification
       setSnackbar({
@@ -211,11 +273,18 @@ const AgentDashboard = () => {
 
     setLoading(true);
     try {
-      const response = await axios.get(`${config.API_BASE_URL}/used_car_agent/view_reviews/${userID}`);
+      const endpoint = `${config.API_BASE_URL}/used_car_agent/view_reviews/${userID}`;
+      const response = await axios.get(endpoint);
 
       if (response.status === 200) {
-        setReviews(response.data.reviews);
-        setAverageRating(response.data.average_rating);
+        const reviews = response.data.reviews;
+        setAllReviews(reviews);
+        setFilteredReviews(reviews);
+        calculateAverageRating(reviews);
+
+        // Extract unique reviewer roles
+        const roles = [...new Set(reviews.map((review) => review.reviewer_role))];
+        setReviewerRoles(roles);
       }
     } catch (error) {
       console.error('Error fetching reviews:', error);
@@ -260,22 +329,48 @@ const AgentDashboard = () => {
     } else if (isNaN(newListing.price) || Number(newListing.price) <= 0) {
       errors.price = 'Price must be a positive number.';
     }
+    if (!selectedSellerUsername) {
+      errors.seller_username = 'Seller username is required.';
+    }
     setListingErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  // US #14
   const handleCreateListing = async () => {
     if (!validateCreateListing()) return;
+
     setLoading(true);
     try {
+      // Step 1: Get seller_id from selectedSellerUsername
+      const sellerIdResponse = await axios.get(`${config.API_BASE_URL}/users/get_user_id`, {
+        params: { username: selectedSellerUsername },
+      });
+
+      if (sellerIdResponse.status !== 200) {
+        setSnackbar({
+          open: true,
+          message: 'Failed to retrieve seller ID.',
+          severity: 'error',
+        });
+        return;
+      }
+
+      const seller_id = sellerIdResponse.data.user_id;
+
+      // Step 2: Create listing payload including seller_id
       const payload = {
-        seller_id: userID, // Use userID as agent identifier
+        agent_id: userID, // Agent's ID
+        seller_id: seller_id, // Seller's ID
         make: newListing.make,
         model: newListing.model,
         year: Number(newListing.year),
         price: Number(newListing.price),
       };
+
+      // Step 3: Send create listing request
       const response = await axios.post(`${config.API_BASE_URL}/used_car_agent/create_listing`, payload);
+
       if (response.status === 201) {
         setSnackbar({
           open: true,
@@ -284,12 +379,19 @@ const AgentDashboard = () => {
         });
         fetchListings(); // Refresh listings
         setOpenCreateListing(false); // Close dialog
-        setNewListing({ make: '', model: '', year: '', price: '' }); // Reset form
+        setNewListing({ make: '', model: '', year: '', price: '', seller_username: '' }); // Reset form
+        setSelectedSellerUsername(''); // Reset selected seller
         setListingErrors({});
       }
     } catch (error) {
       console.error('Error creating listing:', error);
-      if (error.response && error.response.data && error.response.data.error) {
+      if (error.response && error.response.status === 404) {
+        setSnackbar({
+          open: true,
+          message: 'Selected seller not found.',
+          severity: 'error',
+        });
+      } else if (error.response && error.response.data && error.response.data.error) {
         setSnackbar({
           open: true,
           message: JSON.stringify(error.response.data.error),
@@ -330,6 +432,7 @@ const AgentDashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // US #16
   const handleUpdateListing = async () => {
     if (!validateUpdateListing()) return;
     setLoading(true);
@@ -381,6 +484,8 @@ const AgentDashboard = () => {
    * User Story: As a used car agent, I want to delete used car listings so that sold or unavailable cars are removed.
    * Trigger: The agent confirms the deletion of a listing.
    */
+
+  // US #17
   const handleDeleteListing = async () => {
     setLoading(true);
     try {
@@ -420,37 +525,39 @@ const AgentDashboard = () => {
    * User Story: As a used car agent, I want to search for used car listings so that I can find specific cars.
    * Trigger: The agent enters a search query and submits.
    */
+
+  // US #18
   const handleSearchListings = () => {
     let filtered = [...listings];
 
-    // Filter by Name
-    if (listingSearchQuery.trim() !== '') {
-      const query = listingSearchQuery.trim().toLowerCase();
+    // Filter by Selected Makes
+    if (selectedMakes.length > 0 && !selectedMakes.includes('All')) {
+      filtered = filtered.filter((listing) => 
+        selectedMakes.some(
+          (make) => listing.make.toLowerCase().includes(make.toLowerCase())));
+    }
+
+    // Filter by Selected Models
+    if (selectedModels.length > 0 && !selectedModels.includes('All')) {
+      filtered = filtered.filter((listing) => 
+        selectedModels.some(
+          (model) => listing.model.toLowerCase().includes(model.toLowerCase())));
+    }
+
+    // Filter by Year Range
+    if (selectedYearRange[0] !== yearRange[0] || selectedYearRange[1] !== yearRange[1]) {
       filtered = filtered.filter(
         (listing) =>
-          listing.make.toLowerCase().includes(query) ||
-          listing.model.toLowerCase().includes(query)
+          listing.year >= selectedYearRange[0] && listing.year <= selectedYearRange[1]
       );
     }
 
-    // Filter by Model
-    if (listingModelFilter !== '') {
-      filtered = filtered.filter((listing) => listing.model === listingModelFilter);
-    }
-
-    // Filter by Year
-    if (listingYearFilter !== '') {
-      filtered = filtered.filter((listing) => listing.year === Number(listingYearFilter));
-    }
-
     // Filter by Price Range
-    if (listingPriceRangeFilter !== '') {
-      const selectedRange = priceRanges.find(range => range.label === listingPriceRangeFilter);
-      if (selectedRange) {
-        filtered = filtered.filter(
-          (listing) => listing.price >= selectedRange.min && listing.price <= selectedRange.max
-        );
-      }
+    if (selectedPriceRange[0] !== priceRange[0] || selectedPriceRange[1] !== priceRange[1]) {
+      filtered = filtered.filter(
+        (listing) =>
+          listing.price >= selectedPriceRange[0] && listing.price <= selectedPriceRange[1]
+      );
     }
 
     setFilteredListings(filtered);
@@ -463,99 +570,17 @@ const AgentDashboard = () => {
    */
   const handleResetSearch = () => {
     setListingSearchQuery('');
-    setListingModelFilter('');
-    setListingYearFilter('');
-    setListingPriceRangeFilter('');
+    setSelectedMakes(availableMakes); // Reset to all available makes
+    setSelectedModels(availableModels); // Reset to all available models
+    setSelectedYearRange(yearRange);
+    setSelectedPriceRange(priceRange);
     setFilteredListings(listings);
     setListingPage(0); // Reset to first page after reset
   };
+ 
+  // Render Listings with Advanced Filters
 
-  // ----------------------- Reviews Functions -----------------------
-
-  /**
-   * User Story: As a used car agent, I want to view the ratings and reviews so that I can understand client feedback and improve my services.
-   * Trigger: The agent navigates to the Reviews view.
-   */
-  const renderReviews = () => {
-    return (
-      <Box>
-        <Typography variant="h5" gutterBottom>
-          Client Reviews
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Rating value={averageRating} precision={0.1} readOnly />
-          <Typography variant="h6" sx={{ ml: 2 }}>
-            {averageRating ? averageRating.toFixed(1) : 'No ratings yet'}
-          </Typography>
-        </Box>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : reviews.length > 0 ? (
-          <Grid container spacing={2}>
-            {reviews.map((review) => (
-              <Grid item xs={12} md={6} key={review._id}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <Rating value={review.rating} readOnly />
-                      <Typography variant="subtitle1" sx={{ ml: 2 }}>
-                        {formatLabel(review.reviewer_role)}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body1">{review.review || 'No comments provided.'}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(review.created_at).toLocaleString()}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        ) : (
-          <Typography>No reviews available.</Typography>
-        )}
-      </Box>
-    );
-  };
-
-  // ----------------------- Logout Function -----------------------
-
-  /**
-   * User Story: As a used car agent, I want to logout so that I can exit the system.
-   * Trigger: The agent clicks the logout button.
-   */
-  const handleLogout = () => {
-    // Clear localStorage
-    localStorage.removeItem('user');
-    localStorage.removeItem('profile');
-    localStorage.removeItem('userID'); // Remove userID as well
-    setSnackbar({
-      open: true,
-      message: 'Logged out successfully.',
-      severity: 'success',
-    });
-    // Redirect to login page
-    navigate('/login');
-  };
-
-  // ----------------------- Snackbar Handler -----------------------
-
-  const handleCloseSnackbar = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbar({ ...snackbar, open: false });
-  };
-
-  // ----------------------- Render Functions -----------------------
-
-  /**
-   * User Story: As a used car agent, I want to view used car listings so that I can see the details of the cars.
-   * Trigger: The agent navigates to the Listings view.
-   */
-  // Render Listings Table with Advanced Search
+  // US #15
   const renderListings = () => {
     // Calculate the slice of listings to display based on pagination
     const start = listingPage * listingRowsPerPage;
@@ -563,110 +588,124 @@ const AgentDashboard = () => {
     const paginatedListings = filteredListings.slice(start, end);
 
     return (
-      <Box>
-        {/* Advanced Search Section */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2, gap: 2 }}>
-          {/* Row 1: Name and Model */}
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              label="Search by Name"
-              variant="outlined"
-              value={listingSearchQuery}
-              onChange={(e) => setListingSearchQuery(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearchListings();
-                }
-              }}
-              sx={{ flex: 1 }}
-            />
-            <FormControl variant="outlined" sx={{ flex: 1 }}>
-              <InputLabel id="model-filter-label">Model</InputLabel>
-              <Select
-                labelId="model-filter-label"
+      <Box sx={{ m:1 }}>
+        {/* Search and Filters Section */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Search Used Car Listings
+          </Typography>
+        {/* Advanced Filter Section */}
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <Grid container spacing={3}>
+            {/* Make Filter */}
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Make"
+                variant="outlined"
+                fullWidth
+                value={selectedMakes.join(', ')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const makes = value.split(',').map((make) => make.trim()).filter((make) => make !== '');
+                  setSelectedMakes(makes);
+                }}
+              />
+            </Grid>
+
+            {/* Model Filter */}
+            <Grid item xs={12} md={3}>
+              <TextField
                 label="Model"
-                value={listingModelFilter}
-                onChange={(e) => setListingModelFilter(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>All Models</em>
-                </MenuItem>
-                {availableModels.map((model) => (
-                  <MenuItem key={model} value={model}>
-                    {model}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
+                variant="outlined"
+                fullWidth
+                value={selectedModels.join(', ')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const models = value.split(',').map((model) => model.trim()).filter((model) => model !== '');
+                  setSelectedModels(models);
+                }}
+              />
+            </Grid>
 
-          {/* Row 2: Year and Price Range */}
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <FormControl variant="outlined" sx={{ flex: 1 }}>
-              <InputLabel id="year-filter-label">Year</InputLabel>
-              <Select
-                labelId="year-filter-label"
-                label="Year"
-                value={listingYearFilter}
-                onChange={(e) => setListingYearFilter(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>All Years</em>
-                </MenuItem>
-                {availableYears.map((year) => (
-                  <MenuItem key={year} value={year}>
-                    {year}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl variant="outlined" sx={{ flex: 1 }}>
-              <InputLabel id="price-range-filter-label">Price Range</InputLabel>
-              <Select
-                labelId="price-range-filter-label"
-                label="Price Range"
-                value={listingPriceRangeFilter}
-                onChange={(e) => setListingPriceRangeFilter(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>All Price Ranges</em>
-                </MenuItem>
-                {priceRanges.map((range) => (
-                  <MenuItem key={range.label} value={range.label}>
-                    {range.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
+            {/* Year Range Filter */}
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Year From"
+                variant="outlined"
+                fullWidth
+                type="number"
+                value={selectedYearRange[0]}
+                onChange={(e) => setSelectedYearRange([Number(e.target.value), selectedYearRange[1]])}
+                InputProps={{ inputProps: { min: yearRange[0], max: yearRange[1] } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Year To"
+                variant="outlined"
+                fullWidth
+                type="number"
+                value={selectedYearRange[1]}
+                onChange={(e) => setSelectedYearRange([selectedYearRange[0], Number(e.target.value)])}
+                InputProps={{ inputProps: { min: yearRange[0], max: yearRange[1] } }}
+              />
+            </Grid>
 
-          {/* Row 3: Search and Reset Buttons */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<SearchIcon />}
-              onClick={handleSearchListings}
-            >
-              Search
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleResetSearch}
-            >
-              Reset
-            </Button>
-          </Box>
+            {/* Price Range Filter */}
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Price From ($)"
+                variant="outlined"
+                fullWidth
+                type="number"
+                value={selectedPriceRange[0]}
+                onChange={(e) => setSelectedPriceRange([Number(e.target.value), selectedPriceRange[1]])}
+                InputProps={{ inputProps: { min: priceRange[0], max: priceRange[1] } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Price To ($)"
+                variant="outlined"
+                fullWidth
+                type="number"
+                value={selectedPriceRange[1]}
+                onChange={(e) => setSelectedPriceRange([selectedPriceRange[0], Number(e.target.value)])}
+                InputProps={{ inputProps: { min: priceRange[0], max: priceRange[1] } }}
+              />
+            </Grid>
+          </Grid>
+        </Box>
+        <Box sx={{ mt: 2, display: 'flex', gap: 2}}>
+          {/* US #18 */}
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SearchIcon />}
+            onClick={handleSearchListings}
+          >
+            Search
+          </Button>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleResetSearch}
+          >
+            Reset
+          </Button>
+        </Box>
         </Box>
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Button
             variant="contained"
-            color="success"
+            color="primary"
             startIcon={<AddIcon />}
-            onClick={() => setOpenCreateListing(true)}
+            onClick={() => {
+              setOpenCreateListing(true);
+              fetchSellers(); // Fetch sellers when dialog opens
+            }}
           >
             Create Listing
           </Button>
@@ -686,6 +725,7 @@ const AgentDashboard = () => {
                   <TableCell>Model</TableCell>
                   <TableCell>Year</TableCell>
                   <TableCell>Price</TableCell>
+                  <TableCell>Seller</TableCell> {/* Added Seller Column */}
                   <TableCell>Created At</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -698,11 +738,12 @@ const AgentDashboard = () => {
                       <TableCell>{listing.model}</TableCell>
                       <TableCell>{listing.year}</TableCell>
                       <TableCell>${listing.price.toLocaleString()}</TableCell>
+                      <TableCell>{listing.seller_username}</TableCell> {/* Display Seller Username */}
                       <TableCell>{new Date(listing.created_at).toLocaleString()}</TableCell>
                       <TableCell align="center">
                         <Button
-                          variant="outlined"
-                          color="primary"
+                          variant="contained"
+                          color="info"
                           startIcon={<EditIcon />}
                           onClick={() => {
                             setSelectedListing(listing);
@@ -734,7 +775,7 @@ const AgentDashboard = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       No listings found.
                     </TableCell>
                   </TableRow>
@@ -759,354 +800,533 @@ const AgentDashboard = () => {
           </>
         )}
       </Box>
-    );
-  }
+  )  };
+  
+  /**
+   * User Story: As a used car agent, I want to view the ratings and reviews so that I can understand client feedback and improve my services.
+   * Trigger: The agent navigates to the Reviews view.
+   */
 
-    /**
-     * User Story: As a used car agent, I want to see a landing page upon login that allows me to navigate to different sections.
-     * Trigger: The agent logs into the system.
-     */
-    // Render Landing Page
-    const renderLandingPage = () => {
-      return (
-        <Box
-          sx={{
-            height: '80vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Typography variant="h4" gutterBottom>
-            Welcome, {agentInfo ? agentInfo.username : 'Agent'}!
-          </Typography>
-          <Typography variant="h5" gutterBottom>
-            What would you like to do today?
-          </Typography>
-          <Grid container spacing={4} justifyContent="center" sx={{ mt: 4 }}>
-            <Grid item>
-              <Card
-                sx={{
-                  width: 250,
-                  height: 250,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  boxShadow: 3,
-                  '&:hover': {
-                    boxShadow: 6,
-                  },
-                }}
-                onClick={() => handleNavigation('listings')}
-              >
-                <CardActionArea sx={{ width: '100%', height: '100%' }}>
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <AddIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
-                    <Typography variant="h6">Manage Listings</Typography>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            </Grid>
-            <Grid item>
-              <Card
-                sx={{
-                  width: 250,
-                  height: 250,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  boxShadow: 3,
-                  '&:hover': {
-                    boxShadow: 6,
-                  },
-                }}
-                onClick={() => handleNavigation('reviews')}
-              >
-                <CardActionArea sx={{ width: '100%', height: '100%' }}>
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <RateReviewIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
-                    <Typography variant="h6">View Reviews</Typography>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
-      );
-    };
-
-    // ----------------------- Main Render -----------------------
-
+  // US #36
+  const renderReviews = () => {
     return (
-      <Box sx={{ display: 'flex' }}>
-        {/* Sidebar Drawer */}
-        <Drawer
-          variant="permanent"
-          sx={{
-            width: drawerWidth,
-            flexShrink: 0,
-            [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
-          }}
-        >
-          <Toolbar>
-            <Typography variant="h6" noWrap>
-              Agent Dashboard
-            </Typography>
-          </Toolbar>
-          <Box sx={{ overflow: 'auto' }}>
-            <List>
-              {/* Home Button */}
-              <ListItem disablePadding>
-                <ListItemButton
-                  selected={currentView === 'landing'}
-                  onClick={() => handleNavigation('landing')}
-                >
-                  <HomeIcon sx={{ marginRight: 2 }} />
-                  <ListItemText primary="Home" />
-                </ListItemButton>
-              </ListItem>
-
-              {/* Listings Button */}
-              <ListItem disablePadding>
-                <ListItemButton
-                  selected={currentView === 'listings'}
-                  onClick={() => handleNavigation('listings')}
-                >
-                  <AddIcon sx={{ marginRight: 2 }} />
-                  <ListItemText primary="Manage Listings" />
-                </ListItemButton>
-              </ListItem>
-
-              {/* Reviews Button */}
-              <ListItem disablePadding>
-                <ListItemButton
-                  selected={currentView === 'reviews'}
-                  onClick={() => handleNavigation('reviews')}
-                >
-                  <RateReviewIcon sx={{ marginRight: 2 }} />
-                  <ListItemText primary="View Reviews" />
-                </ListItemButton>
-              </ListItem>
-            </List>
-          </Box>
-        </Drawer>
-
-        {/* Main Content */}
-        <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-          {/* AppBar with Logout Button */}
-          <AppBar position="static" sx={{ mb: 4, width: `calc(100% - ${drawerWidth}px)`, ml: `${drawerWidth}px` }}>
-            <Toolbar>
-              <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                {currentView === 'listings'
-                  ? 'Used Car Listings'
-                  : currentView === 'reviews'
-                  ? 'Client Reviews'
-                  : 'Dashboard'}
-              </Typography>
-              <Button color="inherit" onClick={handleLogout}>
-                Logout
-              </Button>
-            </Toolbar>
-          </AppBar>
-
-          {/* Snackbar for Messages */}
-          <Snackbar
-            open={snackbar.open}
-            autoHideDuration={6000}
-            onClose={handleCloseSnackbar}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-          >
-            <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-              {snackbar.message}
-            </Alert>
-          </Snackbar>
-
-          {/* Render Content Based on Current View */}
-          {currentView === 'landing' && renderLandingPage()}
-          {currentView === 'listings' && renderListings()}
-          {currentView === 'reviews' && renderReviews()}
-
-          {/* ----------------------- Listings Dialogs ----------------------- */}
-
-          {/* Create Listing Dialog */}
-          <Dialog
-            open={openCreateListing}
-            onClose={() => {
-              setOpenCreateListing(false);
-              setListingErrors({});
-            }}
-            fullWidth
-            maxWidth="sm"
-          >
-            <DialogTitle>Create New Listing</DialogTitle>
-            <DialogContent>
-              <TextField
-                label="Make"
-                name="make"
-                fullWidth
-                required
-                margin="normal"
-                value={newListing.make}
-                onChange={(e) => setNewListing({ ...newListing, make: e.target.value })}
-                error={Boolean(listingErrors.make)}
-                helperText={listingErrors.make}
-              />
-              <TextField
-                label="Model"
-                name="model"
-                fullWidth
-                required
-                margin="normal"
-                value={newListing.model}
-                onChange={(e) => setNewListing({ ...newListing, model: e.target.value })}
-                error={Boolean(listingErrors.model)}
-                helperText={listingErrors.model}
-              />
-              <TextField
-                label="Year"
-                name="year"
-                fullWidth
-                required
-                margin="normal"
-                value={newListing.year}
-                onChange={(e) => setNewListing({ ...newListing, year: e.target.value })}
-                error={Boolean(listingErrors.year)}
-                helperText={listingErrors.year}
-              />
-              <TextField
-                label="Price"
-                name="price"
-                fullWidth
-                required
-                margin="normal"
-                value={newListing.price}
-                onChange={(e) => setNewListing({ ...newListing, price: e.target.value })}
-                error={Boolean(listingErrors.price)}
-                helperText={listingErrors.price}
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button
-                onClick={() => {
-                  setOpenCreateListing(false);
-                  setListingErrors({});
-                }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleCreateListing} variant="contained" color="primary" disabled={loading}>
-                {loading ? <CircularProgress size={24} /> : 'Create'}
-              </Button>
-            </DialogActions>
-          </Dialog>
-
-          {/* Update Listing Dialog */}
-          <Dialog
-            open={openUpdateListing}
-            onClose={() => {
-              setOpenUpdateListing(false);
-              setUpdateListingErrors({});
-            }}
-            fullWidth
-            maxWidth="sm"
-          >
-            <DialogTitle>Update Listing</DialogTitle>
-            <DialogContent>
-              {selectedListing && (
-                <>
-                  <Typography variant="subtitle1">
-                    Listing ID: {selectedListing._id}
-                  </Typography>
-                  <TextField
-                    label="Make"
-                    name="make"
-                    fullWidth
-                    required
-                    margin="normal"
-                    value={updatedListingData.make}
-                    onChange={(e) => setUpdatedListingData({ ...updatedListingData, make: e.target.value })}
-                    error={Boolean(updateListingErrors.make)}
-                    helperText={updateListingErrors.make}
-                  />
-                  <TextField
-                    label="Model"
-                    name="model"
-                    fullWidth
-                    required
-                    margin="normal"
-                    value={updatedListingData.model}
-                    onChange={(e) => setUpdatedListingData({ ...updatedListingData, model: e.target.value })}
-                    error={Boolean(updateListingErrors.model)}
-                    helperText={updateListingErrors.model}
-                  />
-                  <TextField
-                    label="Year"
-                    name="year"
-                    fullWidth
-                    required
-                    margin="normal"
-                    value={updatedListingData.year}
-                    onChange={(e) => setUpdatedListingData({ ...updatedListingData, year: e.target.value })}
-                    error={Boolean(updateListingErrors.year)}
-                    helperText={updateListingErrors.year}
-                  />
-                  <TextField
-                    label="Price"
-                    name="price"
-                    fullWidth
-                    required
-                    margin="normal"
-                    value={updatedListingData.price}
-                    onChange={(e) => setUpdatedListingData({ ...updatedListingData, price: e.target.value })}
-                    error={Boolean(updateListingErrors.price)}
-                    helperText={updateListingErrors.price}
-                  />
-                </>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button
-                onClick={() => {
-                  setOpenUpdateListing(false);
-                  setUpdateListingErrors({});
-                }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleUpdateListing} variant="contained" color="primary" disabled={loading}>
-                {loading ? <CircularProgress size={24} /> : 'Update'}
-              </Button>
-            </DialogActions>
-          </Dialog>
-
-          {/* Delete Listing Dialog */}
-          <Dialog
-            open={openDeleteListing}
-            onClose={() => setOpenDeleteListing(false)}
-            fullWidth
-            maxWidth="sm"
-          >
-            <DialogTitle>Delete Listing</DialogTitle>
-            <DialogContent>
-              {listingToDelete && (
-                <Typography>
-                  Are you sure you want to delete the listing for <strong>{listingToDelete.make} {listingToDelete.model} ({listingToDelete.year})</strong>?
-                </Typography>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setOpenDeleteListing(false)}>Cancel</Button>
-              <Button onClick={handleDeleteListing} variant="contained" color="error" disabled={loading}>
-                {loading ? <CircularProgress size={24} /> : 'Delete'}
-              </Button>
-            </DialogActions>
-          </Dialog>
+      <Box sx= {{ m:1 }}>
+        <Typography variant="h6" gutterBottom>
+          Client Reviews
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Rating value={averageRating} precision={0.1} readOnly />
+          <Typography variant="h6" sx={{ ml: 2 }}>
+            {averageRating ? averageRating.toFixed(1) : 'No ratings yet'}
+          </Typography>
         </Box>
+
+        {/* Reviewer Role Filter */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <FormControl variant="outlined" sx={{ minWidth: 200 }}>
+            <InputLabel id="review-role-filter-label">Filter by Role</InputLabel>
+            <Select
+              labelId="review-role-filter-label"
+              label="Filter by Role"
+              value={selectedReviewRole}
+              onChange={handleReviewRoleChange}
+            >
+              <MenuItem value="">
+                <em>All Roles</em>
+              </MenuItem>
+              {reviewerRoles.length > 0 ? (
+                reviewerRoles.map((role) => (
+                  <MenuItem key={role} value={role}>
+                    {role}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem value="" disabled>
+                  No Roles Available
+                </MenuItem>
+              )}
+            </Select>
+          </FormControl>
+          {selectedReviewRole && (
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleResetReviewFilter}
+              sx={{ ml: 2 }}
+            >
+              Reset
+            </Button>
+          )}
+        </Box>
+
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : filteredReviews.length > 0 ? (
+          <Grid container spacing={2}>
+            {filteredReviews.map((review) => (
+              <Grid item xs={12} md={6} key={review._id}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <Rating value={review.rating} readOnly />
+                      <Typography variant="subtitle1" sx={{ ml: 2 }}>
+                        {formatLabel(review.reviewer_role)}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body1">{review.review || 'No comments provided.'}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(review.created_at).toLocaleString()}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Typography>No reviews available.</Typography>
+        )}
       </Box>
     );
   };
 
-  export default AgentDashboard;
+  // Handle Review Role Change
+  const handleReviewRoleChange = (event) => {
+    const role = event.target.value;
+    setSelectedReviewRole(role);
+    applyReviewFilter(role);
+  };
+
+  // Reset Review Filter
+  const handleResetReviewFilter = () => {
+    setSelectedReviewRole('');
+    setFilteredReviews(allReviews);
+  };
+
+  // Apply Review Filter
+  const applyReviewFilter = (role) => {
+    if (!role) {
+      setFilteredReviews(allReviews);
+      return;
+    }
+    const filtered = allReviews.filter(
+      (review) => review.reviewer_role.toLowerCase() === role.toLowerCase()
+    );
+    setFilteredReviews(filtered);
+  };
+
+  // ----------------------- Logout Function -----------------------
+
+  /**
+   * User Story: As a used car agent, I want to logout so that I can exit the system.
+   * Trigger: The agent clicks the logout button.
+   */
+
+  // US #20
+  const handleLogout = () => {
+    // Clear localStorage
+    localStorage.removeItem('user');
+    localStorage.removeItem('profile');
+    localStorage.removeItem('userID'); // Remove userID as well
+    setSnackbar({
+      open: true,
+      message: 'Logged out successfully.',
+      severity: 'success',
+    });
+    // Redirect to login page
+    navigate('/login');
+  };
+
+  // ----------------------- Snackbar Handler -----------------------
+
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  // ----------------------- Render Functions -----------------------
+
+  /**
+   * User Story: As a used car agent, I want to see a landing page upon login that allows me to navigate to different sections.
+   * Trigger: The agent logs into the system.
+   */
+  // Render Landing Page
+  const renderLandingPage = () => {
+    return (
+      <Box
+        sx={{
+          height: '80vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Typography variant="h4" gutterBottom>
+          Welcome, {agentInfo ? agentInfo.username : 'Agent'}!
+        </Typography>
+        <Typography variant="h5" gutterBottom>
+          What would you like to do today?
+        </Typography>
+        <Grid container spacing={4} justifyContent="center" sx={{ mt: 4 }}>
+          <Grid item>
+            <Card
+              sx={{
+                width: 250,
+                height: 250,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: 3,
+                '&:hover': {
+                  boxShadow: 6,
+                },
+              }}
+              // US #15
+              onClick={() => handleNavigation('listings')}
+            >
+              <CardActionArea sx={{ width: '100%', height: '100%' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <AddIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
+                  <Typography variant="h6">View Used Car Listings</Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          </Grid>
+          <Grid item>
+            <Card
+              sx={{
+                width: 250,
+                height: 250,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: 3,
+                '&:hover': {
+                  boxShadow: 6,
+                },
+              }}
+              // US #36
+              onClick={() => handleNavigation('reviews')}
+            >
+              <CardActionArea sx={{ width: '100%', height: '100%' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <RateReviewIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
+                  <Typography variant="h6">View Reviews</Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
+    );
+  };
+
+  // ----------------------- Main Render -----------------------
+
+  return (
+    <Box sx={{ display: 'flex' }}>
+      {/* Sidebar Drawer */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+        }}
+      >
+        <Toolbar>
+          <Typography variant="h6" noWrap>
+            Used Car Agent
+          </Typography>
+        </Toolbar>
+        <Box sx={{ overflow: 'auto' }}>
+          <List>
+            {/* Home Button */}
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={currentView === 'landing'}
+                onClick={() => handleNavigation('landing')}
+              >
+                <HomeIcon sx={{ marginRight: 2 }} />
+                <ListItemText primary="Home" />
+              </ListItemButton>
+            </ListItem>
+
+            {/* Listings Button */}
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={currentView === 'listings'}
+                onClick={() => handleNavigation('listings')}
+              >
+                <AddIcon sx={{ marginRight: 2 }} />
+                <ListItemText primary="Used Car Listings" />
+              </ListItemButton>
+            </ListItem>
+
+            {/* Reviews Button */}
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={currentView === 'reviews'}
+                onClick={() => handleNavigation('reviews')}
+              >
+                <RateReviewIcon sx={{ marginRight: 2 }} />
+                <ListItemText primary="View Reviews" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Box>
+      </Drawer>
+
+      {/* Main Content */}
+      <Box component="main" sx={{ flexGrow: 1 }}>
+        {/* AppBar with Logout Button */}
+        <AppBar position="static" sx={{ mb: 4 }}>
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              {currentView === 'listings'
+                ? 'Used Car Listings'
+                : currentView === 'reviews'
+                ? 'Reviews'
+                : 'Dashboard'}
+            </Typography>
+            {/* US #20 */}
+            <Button color="inherit" onClick={handleLogout}>
+              Logout
+            </Button>
+          </Toolbar>
+        </AppBar>
+
+        {/* Snackbar for Messages */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+
+        {/* Render Content Based on Current View */}
+        {currentView === 'landing' && renderLandingPage()}
+        {currentView === 'listings' && renderListings()}
+        {currentView === 'reviews' && renderReviews()}
+
+        {/* ----------------------- Listings Dialogs ----------------------- */}
+                
+        {/* Create Listing Dialog */}
+        <Dialog
+          open={openCreateListing}
+          onClose={() => {
+            setOpenCreateListing(false);
+            setListingErrors({});
+            setSelectedSellerUsername('');
+          }}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Create New Listing</DialogTitle>
+          <DialogContent>
+            <TextField
+              label="Make"
+              name="make"
+              fullWidth
+              required
+              margin="normal"
+              value={newListing.make}
+              onChange={(e) => setNewListing({ ...newListing, make: e.target.value })}
+              error={Boolean(listingErrors.make)}
+              helperText={listingErrors.make}
+            />
+            <TextField
+              label="Model"
+              name="model"
+              fullWidth
+              required
+              margin="normal"
+              value={newListing.model}
+              onChange={(e) => setNewListing({ ...newListing, model: e.target.value })}
+              error={Boolean(listingErrors.model)}
+              helperText={listingErrors.model}
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="create-seller-label">Seller Username</InputLabel>
+              <Select
+                labelId="create-seller-label"
+                label="Seller Username"
+                value={selectedSellerUsername}
+                onChange={(e) => setSelectedSellerUsername(e.target.value)}
+                error={Boolean(listingErrors.seller_username)}
+              >
+                {sellers.map((seller) => (
+                  <MenuItem key={seller._id} value={seller.username}>
+                    {seller.username}
+                  </MenuItem>
+                ))}
+              </Select>
+              {listingErrors.seller_username && (
+                <Typography variant="caption" color="error">
+                  {listingErrors.seller_username}
+                </Typography>
+              )}
+            </FormControl> 
+            <TextField
+              label="Year"
+              name="year"
+              fullWidth
+              required
+              margin="normal"
+              type="number"
+              value={newListing.year || ''}
+              onChange={(e) => setNewListing({ ...newListing, year: e.target.value })}
+              error={Boolean(listingErrors.year)}
+              helperText={listingErrors.year}
+            /> 
+            <TextField
+              label="Price ($)"
+              name="price"
+              fullWidth
+              required
+              margin="normal"
+              type="number"
+              value={newListing.price || ''}
+              onChange={(e) => setNewListing({ ...newListing, price: e.target.value })}
+              error={Boolean(listingErrors.price)}
+              helperText={listingErrors.price}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setOpenCreateListing(false);
+                setListingErrors({});
+                setSelectedSellerUsername('');
+              }}
+            >
+              Cancel
+            </Button>
+            {/* US #14 */}
+            <Button onClick={handleCreateListing} variant="contained" color="primary" disabled={loading}>
+              {loading ? <CircularProgress size={24} /> : 'Create'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Update Listing Dialog */}
+        <Dialog
+          open={openUpdateListing}
+          onClose={() => {
+            setOpenUpdateListing(false);
+            setUpdateListingErrors({});
+          }}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Update Listing</DialogTitle>
+          <DialogContent>
+            {selectedListing && (
+              <>
+                <Typography variant="subtitle1" gutterBottom>
+                  Listing ID: {selectedListing._id}
+                </Typography>
+                <TextField
+                  label="Make"
+                  name="make"
+                  fullWidth
+                  required
+                  margin="normal"
+                  value={updatedListingData.make}
+                  onChange={(e) => setUpdatedListingData({ ...updatedListingData, make: e.target.value })}
+                  error={Boolean(updateListingErrors.make)}
+                  helperText={updateListingErrors.make}
+                />
+                <TextField
+                  label="Model"
+                  name="model"
+                  fullWidth
+                  required
+                  margin="normal"
+                  value={updatedListingData.model}
+                  onChange={(e) => setUpdatedListingData({ ...updatedListingData, model: e.target.value })}
+                  error={Boolean(updateListingErrors.model)}
+                  helperText={updateListingErrors.model}
+                />
+                <TextField
+                  label="Year"
+                  name="year"
+                  fullWidth
+                  required
+                  margin="normal"
+                  type="number"
+                  value={updatedListingData.year}
+                  onChange={(e) => setUpdatedListingData({ ...updatedListingData, year: e.target.value })}
+                  error={Boolean(updateListingErrors.year)}
+                  helperText={updateListingErrors.year}
+                />
+                <TextField
+                  label="Price ($)"
+                  name="price"
+                  fullWidth
+                  required
+                  margin="normal"
+                  type="number"
+                  value={updatedListingData.price}
+                  onChange={(e) => setUpdatedListingData({ ...updatedListingData, price: e.target.value })}
+                  error={Boolean(updateListingErrors.price)}
+                  helperText={updateListingErrors.price}
+                />
+              </>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setOpenUpdateListing(false);
+                setUpdateListingErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            {/* US #16 */}
+            <Button onClick={handleUpdateListing} variant="contained" color="primary" disabled={loading}>
+              {loading ? <CircularProgress size={24} /> : 'Update'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete Listing Dialog */}
+        <Dialog
+          open={openDeleteListing}
+          onClose={() => setOpenDeleteListing(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Delete Listing</DialogTitle>
+          <DialogContent>
+            {listingToDelete && (
+              <Typography>
+                Are you sure you want to delete the listing for <strong>{listingToDelete.make} {listingToDelete.model} ({listingToDelete.year})</strong>?
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDeleteListing(false)}>Cancel</Button>
+            {/* US #17 */}
+            <Button onClick={handleDeleteListing} variant="contained" color="error" disabled={loading}>
+              {loading ? <CircularProgress size={24} /> : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </Box>
+  );
+};
+
+export default AgentDashboard;

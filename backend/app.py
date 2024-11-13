@@ -4,6 +4,7 @@ from flask_cors import CORS
 
 # Import all Blueprints
 from controllers.auth import auth_bp
+from controllers.user_admin.get_user_from_id import get_user_from_id_bp
 from controllers.user_admin.create_user import create_user_bp
 from controllers.user_admin.view_users import view_users_bp
 from controllers.user_admin.update_user import update_user_bp
@@ -26,8 +27,9 @@ from controllers.buyer.search_shortlist import search_shortlist_bp
 from controllers.buyer.view_shortlist import view_shortlist_bp
 from controllers.seller.track_view import track_view_bp
 from controllers.seller.track_shortlist import track_shortlist_bp
+from controllers.seller.get_reviews import get_reviews_bp
 from controllers.seller.get_metrics import get_metrics_bp
-from controllers.review.rate_review_agent import rate_review_agent_bp  # New Controller
+from controllers.review.rate_review_agent import rate_review_agent_bp 
 from controllers.review.view_reviews import view_reviews_bp 
 from controllers.buyer.loan_calculator import loan_calculator_bp 
 from controllers.used_car_agent.view_listing import view_listings_bp 
@@ -39,8 +41,7 @@ import os
 
 load_dotenv()
 
-app = Flask(__name__)
-
+app = Flask(__name__) 
 # Initialize CORS
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}) 
 
@@ -49,6 +50,7 @@ init_db()
 
 # Register all Blueprints
 app.register_blueprint(auth_bp)
+app.register_blueprint(get_user_from_id_bp)
 app.register_blueprint(create_user_bp)
 app.register_blueprint(view_users_bp)
 app.register_blueprint(update_user_bp)
@@ -77,6 +79,7 @@ app.register_blueprint(rate_review_agent_bp)
 app.register_blueprint(view_reviews_bp)  
 app.register_blueprint(loan_calculator_bp)
 app.register_blueprint(view_listings_bp)
+app.register_blueprint(get_reviews_bp)
 
 
 # Define centralized error handlers
