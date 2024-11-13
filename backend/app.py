@@ -39,8 +39,7 @@ import os
 
 load_dotenv()
 
-app = Flask(__name__)
-print(test)
+app = Flask(__name__) 
 # Initialize CORS
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}) 
 
