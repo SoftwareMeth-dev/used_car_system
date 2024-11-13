@@ -449,7 +449,7 @@ class UsedCarListing:
                 logger.warning(f"User not found with user_id: {user_id}")
                 return {"error": "User not found."}, 404  # Not Found
 
-            role = user.get('role')
+            role = user.get('role') 
             if not role:
                 logger.warning(f"Role not defined for user_id: {user_id}")
                 return {"error": "User role not defined."}, 400  # Bad Request
@@ -466,8 +466,8 @@ class UsedCarListing:
                 return {"error": f"Invalid user role: {role}."}, 400  # Bad Request
 
             # Step 4: Query listings based on the determined field
-            listings_cursor = used_car_collection.find({query_field: user_id})
-            listings = list(listings_cursor)
+            listings_cursor = used_car_collection.find({query_field: user_id}) 
+            listings = list(listings_cursor) 
             logger.debug(f"Number of listings found for user_id {user_id}: {len(listings)}")
 
             if not listings:
@@ -475,15 +475,15 @@ class UsedCarListing:
                 return {"message": "No listings found for this user.", "listings": []}, 200  # OK
 
             # Extract listing_ids for querying reviews
-            listing_ids = [listing['_id'] for listing in listings]
+            listing_ids = [str(listing['_id']) for listing in listings]
             logger.debug(f"Listing IDs: {listing_ids}")
-            
+            print(listing_ids)
             # Step 5: Query all reviews where listing_id matches
             seller_reviews_cursor = reviews_collection.find({
                 'listing_id': {"$in": listing_ids}
             })
             seller_reviews = list(seller_reviews_cursor) 
-            logger.debug(f"Number of reviews found: {len(seller_reviews)}")
+            print(f"Number of reviews found: {len(seller_reviews)}")
 
             # Create a mapping from listing_id to review_id
             review_map = {str(review['listing_id']): str(review['_id']) for review in seller_reviews} 

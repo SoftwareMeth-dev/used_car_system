@@ -29,7 +29,7 @@ from controllers.used_car_listing.search_listings import search_listings_bp
 from controllers.used_car_listing.search_cars import search_cars_bp 
 from controllers.used_car_listing.track_view import track_view_bp
 from controllers.used_car_listing.track_shortlist import track_shortlist_bp
-from controllers.used_car_listing.get_reviews import get_reviews_bp
+from controllers.used_car_listing.get_reviews import user_reviews_bp
 from controllers.used_car_listing.get_metrics import get_metrics_bp
 
 from controllers.user.get_user_from_id import get_user_from_id_bp
@@ -89,7 +89,7 @@ app.register_blueprint(rate_review_agent_bp)
 app.register_blueprint(view_reviews_bp)  
 app.register_blueprint(loan_calculator_bp)
 app.register_blueprint(view_listings_bp)
-app.register_blueprint(get_reviews_bp)
+app.register_blueprint(user_reviews_bp)
 
 
 # Define centralized error handlers
