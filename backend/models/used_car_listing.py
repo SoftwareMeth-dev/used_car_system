@@ -388,7 +388,7 @@ class UsedCarListing:
 
         try:
             # Step 1: Retrieve all listings for the seller
-            listings_cursor = used_car_collection.find({"seller_id": ObjectId(seller_id)})
+            listings_cursor = used_car_collection.find({"seller_id": (seller_id)})
             listings = list(listings_cursor)
 
             if not listings:
