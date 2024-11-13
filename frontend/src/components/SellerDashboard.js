@@ -55,6 +55,7 @@ const formatLabel = (str) => {
     .join(' ');
 };
 
+
 const SellerDashboard = () => {
   const navigate = useNavigate();
 
@@ -110,6 +111,20 @@ const SellerDashboard = () => {
     reviewer_id: '', // Needed for authorization
   });
   const [reviewErrors, setReviewErrors] = useState({});
+
+
+    
+  const titleMap = {
+    landing: 'Seller Dashboard',
+    listings: 'Seller Dashboard - View Metrics',
+    shortlists: 'Seller Dashboard - Shortlist Statistics',
+    reviews: 'Seller Dashboard - View Reviews',
+  };
+  // Set the document title based on currentView
+  useEffect(() => {
+    const title = titleMap[currentView] || 'Seller Dashboard';
+    document.title = title;
+  }, [currentView]);
 
   // Retrieve Seller Information from localStorage
   const getSellerInfo = () => {
