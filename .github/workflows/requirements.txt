@@ -1,6 +1,0 @@
-Flask
-pymongo
-python-dotenv
-flask-cors
-Faker
-marshmallow
