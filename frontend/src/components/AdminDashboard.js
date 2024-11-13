@@ -175,7 +175,7 @@ const AdminDashboard = () => {
   const fetchUsers = async (filters = {}) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${config.API_BASE_URL}/user_admin/search_users`, {
+      const response = await axios.get(`${config.API_BASE_URL}/search_users`, {
         params: filters,
       });
       if (response.status === 200) {
@@ -274,7 +274,7 @@ const AdminDashboard = () => {
     if (!validateCreateUser()) return;
     setLoading(true);
     try {
-      const response = await axios.post(`${config.API_BASE_URL}/user_admin/create_user`, newUser);
+      const response = await axios.post(`${config.API_BASE_URL}/create_user`, newUser);
       if (response.status === 201) {
         setSnackbar({
           open: true,
@@ -327,7 +327,7 @@ const AdminDashboard = () => {
     setLoading(true);
     try {
       const response = await axios.put(
-        `${config.API_BASE_URL}/user_admin/update_user/${selectedUser.username}`,
+        `${config.API_BASE_URL}/update_user/${selectedUser.username}`,
         updatedUserData
       );
       if (response.status === 200) {
@@ -369,7 +369,7 @@ const AdminDashboard = () => {
   const handleSuspendUser = async () => {
     setLoading(true);
     try {
-      const response = await axios.patch(`${config.API_BASE_URL}/user_admin/suspend_user/${userToSuspend.username}`);
+      const response = await axios.patch(`${config.API_BASE_URL}/suspend_user/${userToSuspend.username}`);
       if (response.status === 200) {
         setSnackbar({
           open: true,
@@ -407,7 +407,7 @@ const AdminDashboard = () => {
   const handleReenableUser = async () => {
     setLoading(true);
     try {
-      const response = await axios.patch(`${config.API_BASE_URL}/user_admin/reenable_user/${userToReenable.username}`);
+      const response = await axios.patch(`${config.API_BASE_URL}/reenable_user/${userToReenable.username}`);
       if (response.status === 200) {
         setSnackbar({
           open: true,
@@ -482,7 +482,7 @@ const AdminDashboard = () => {
         role: newProfile.role,
         rights: newProfile.rights, // Array of snake_case rights
       };
-      const response = await axios.post(`${config.API_BASE_URL}/user_admin/create_profile`, payload);
+      const response = await axios.post(`${config.API_BASE_URL}/create_profile`, payload);
       if (response.status === 201) {
         setSnackbar({
           open: true,
@@ -534,7 +534,7 @@ const AdminDashboard = () => {
         rights: updatedProfileData.rights, // Array of snake_case rights
       };
       const response = await axios.put(
-        `${config.API_BASE_URL}/user_admin/update_profile/${selectedProfile.role}`,
+        `${config.API_BASE_URL}/update_profile/${selectedProfile.role}`,
         payload
       );
       if (response.status === 200) {
@@ -576,7 +576,7 @@ const AdminDashboard = () => {
   const handleSuspendProfile = async () => {
     setLoading(true);
     try {
-      const response = await axios.patch(`${config.API_BASE_URL}/user_admin/suspend_profile/${profileToSuspend.role}`);
+      const response = await axios.patch(`${config.API_BASE_URL}/suspend_profile/${profileToSuspend.role}`);
       if (response.status === 200) {
         setSnackbar({
           open: true,
@@ -615,7 +615,7 @@ const AdminDashboard = () => {
   const handleReenableProfile = async () => {
     setLoading(true);
     try {
-      const response = await axios.patch(`${config.API_BASE_URL}/user_admin/reenable_profile/${profileToReenable.role}`);
+      const response = await axios.patch(`${config.API_BASE_URL}/reenable_profile/${profileToReenable.role}`);
       if (response.status === 200) {
         setSnackbar({
           open: true,

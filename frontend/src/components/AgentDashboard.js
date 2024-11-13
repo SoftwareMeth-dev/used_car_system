@@ -180,7 +180,7 @@ const AgentDashboard = () => {
 
     setLoading(true);
     try {
-      const endpoint = `${config.API_BASE_URL}/used_car_agent/view_listings`;
+      const endpoint = `${config.API_BASE_URL}/view_listings`;
       const params = { agent_id: userID }; // Pass userID as agent identifier
 
       const response = await axios.get(endpoint, { params });
@@ -273,7 +273,7 @@ const AgentDashboard = () => {
 
     setLoading(true);
     try {
-      const endpoint = `${config.API_BASE_URL}/used_car_agent/view_reviews/${userID}`;
+      const endpoint = `${config.API_BASE_URL}/view_reviews/${userID}`;
       const response = await axios.get(endpoint);
 
       if (response.status === 200) {
@@ -369,7 +369,7 @@ const AgentDashboard = () => {
       };
 
       // Step 3: Send create listing request
-      const response = await axios.post(`${config.API_BASE_URL}/used_car_agent/create_listing`, payload);
+      const response = await axios.post(`${config.API_BASE_URL}/create_listing`, payload);
 
       if (response.status === 201) {
         setSnackbar({
@@ -445,7 +445,7 @@ const AgentDashboard = () => {
       };
       // Use listing's _id as the identifier
       const response = await axios.put(
-        `${config.API_BASE_URL}/used_car_agent/update_listing/${selectedListing._id}`,
+        `${config.API_BASE_URL}/update_listing/${selectedListing._id}`,
         payload
       );
       if (response.status === 200) {
@@ -490,7 +490,7 @@ const AgentDashboard = () => {
     setLoading(true);
     try {
       // Use listing's _id as the identifier
-      const response = await axios.delete(`${config.API_BASE_URL}/used_car_agent/delete_listing/${listingToDelete._id}`);
+      const response = await axios.delete(`${config.API_BASE_URL}/delete_listing/${listingToDelete._id}`);
       if (response.status === 200) {
         setSnackbar({
           open: true,

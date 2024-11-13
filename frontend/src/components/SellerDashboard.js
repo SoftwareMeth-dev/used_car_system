@@ -164,7 +164,7 @@ const SellerDashboard = () => {
     setLoading(true);
     try {
       // Fetch all metrics for the seller
-      const metricsEndpoint = `${config.API_BASE_URL}/seller/get_metrics/seller/${userID}`;
+      const metricsEndpoint = `${config.API_BASE_URL}/get_metrics/${userID}`;
       const response = await axios.get(metricsEndpoint);
 
       if (response.status === 200) {
@@ -251,7 +251,7 @@ const SellerDashboard = () => {
 
     setLoading(true);
     try {
-      const endpoint = `${config.API_BASE_URL}/seller/view_reviews/${userID}`;
+      const endpoint = `${config.API_BASE_URL}/view_reviews/${userID}`;
       const response = await axios.get(endpoint);
 
       if (response.status === 200) {
@@ -365,7 +365,7 @@ const SellerDashboard = () => {
         rating: Number(reviewFormData.rating),
         review: reviewFormData.review,
       };
-      const endpoint = `${config.API_BASE_URL}/seller/rate_review_agent`;
+      const endpoint = `${config.API_BASE_URL}/rate_review_agent`;
       const response = await axios.post(endpoint, payload);
       if (response.status === 201 || response.status === 200) {
         setSnackbar({
@@ -412,7 +412,7 @@ const SellerDashboard = () => {
         rating: Number(reviewFormData.rating),
         review: reviewFormData.review,
       };
-      const endpoint = `${config.API_BASE_URL}/seller/edit_review_agent/${selectedReview.listing_id}`;
+      const endpoint = `${config.API_BASE_URL}/edit_review_agent/${selectedReview.listing_id}`;
       const response = await axios.put(endpoint, payload);
       if (response.status === 200) {
         setSnackbar({
