@@ -1,5 +1,4 @@
 // src/controllers/AgentListingsController.js
-import AgentListingsService from "../services/AgentListingsService";
 
 const AgentListingsController = {
   async fetchAllListings() {

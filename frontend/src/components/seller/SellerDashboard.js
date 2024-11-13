@@ -1,26 +1,34 @@
 // src/components/SellerDashboard.js
-import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Container, Box } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import React from "react";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Container,
+  Box,
+} from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import SellerDashboard from "./components/seller/boundary/SellerDashboard";
 
 function SellerDashboard() {
   const navigate = useNavigate();
-  const userData = localStorage.getItem('user');
-  console.log("Entering Seller dahsboard")
- 
+  const userData = localStorage.getItem("user");
+  console.log("Entering Seller dahsboard");
+
   let user = {};
   if (userData) {
     try {
       user = JSON.parse(userData).role;
     } catch (error) {
-      console.error('Error parsing user data:', error);
+      console.error("Error parsing user data:", error);
     }
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    console.log('User logged out');
-    navigate('/');
+    localStorage.removeItem("user");
+    console.log("User logged out");
+    navigate("/");
   };
 
   return (
@@ -33,7 +41,9 @@ function SellerDashboard() {
           <Typography variant="body1" sx={{ mr: 2 }}>
             {user.username}
           </Typography>
-          <Button color="inherit" onClick={handleLogout}>Logout</Button>
+          <Button color="inherit" onClick={handleLogout}>
+            Logout
+          </Button>
         </Toolbar>
       </AppBar>
       <Container>

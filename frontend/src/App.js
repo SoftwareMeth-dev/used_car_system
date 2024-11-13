@@ -1,12 +1,12 @@
 // src/App.js
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import Login from './components/Login';
-import AdminDashboard from './components/AdminDashboard';
-import AgentDashboard from './components/AgentDashboard';
-import SellerDashboard from './components/SellerDashboard';
-import BuyerDashboard from './components/BuyerDashboard';
-import ProtectedRoute from './components/ProtectedRoute';
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import Login from "./components/Login";
+import AdminDashboard from "./components/AdminDashboard";
+import AgentDashboard from "./components/agent/AgentDashboard";
+import SellerDashboard from "./components/seller/boundary/SellerDashboard";
+import BuyerDashboard from "./components/BuyerDashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -18,7 +18,7 @@ function App() {
       <Route
         path="/admin/*"
         element={
-          <ProtectedRoute roles={['user_admin']}>
+          <ProtectedRoute roles={["user_admin"]}>
             <AdminDashboard />
           </ProtectedRoute>
         }
@@ -28,7 +28,7 @@ function App() {
       <Route
         path="/used_car_agent/*"
         element={
-          <ProtectedRoute roles={['used_car_agent']}>
+          <ProtectedRoute roles={["used_car_agent"]}>
             <AgentDashboard />
           </ProtectedRoute>
         }
@@ -38,7 +38,7 @@ function App() {
       <Route
         path="/seller/*"
         element={
-          <ProtectedRoute roles={['seller']}>
+          <ProtectedRoute roles={["seller"]}>
             <SellerDashboard />
           </ProtectedRoute>
         }
@@ -48,7 +48,7 @@ function App() {
       <Route
         path="/buyer/*"
         element={
-          <ProtectedRoute roles={['buyer']}>
+          <ProtectedRoute roles={["buyer"]}>
             <BuyerDashboard />
           </ProtectedRoute>
         }
