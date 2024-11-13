@@ -4,6 +4,7 @@ from flask_cors import CORS
 
 # Import all Blueprints
 from controllers.auth import auth_bp
+from controllers.user_admin.get_user_from_id import get_user_from_id_bp
 from controllers.user_admin.create_user import create_user_bp
 from controllers.user_admin.view_users import view_users_bp
 from controllers.user_admin.update_user import update_user_bp
@@ -49,6 +50,7 @@ init_db()
 
 # Register all Blueprints
 app.register_blueprint(auth_bp)
+app.register_blueprint(get_user_from_id_bp)
 app.register_blueprint(create_user_bp)
 app.register_blueprint(view_users_bp)
 app.register_blueprint(update_user_bp)

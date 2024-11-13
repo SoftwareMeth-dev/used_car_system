@@ -328,3 +328,25 @@ class User:
         except Exception as e:
             logger.exception(f"Exception during searching users with query '{query}': {e}")
             return {"error": "Failed to search users."}, 500  # Internal Server Error
+
+
+    @staticmethod
+    def get_user_id_from_username(username):
+        """
+        Retrieves the ObjectId of a user based on their username.
+        Returns a tuple of (response_data, status_code).
+        """
+        if not username:
+            logger.warning("Username parameter is missing.")
+            return {"error": "Username parameter is required."}, 400  # Bad Request
+        try:
+            user = users_collection.find_one({"username": username})
+            if not user:
+                logger.warning(f"User not found with username: {username}")
+                return {"error": "User not found."}, 404  # Not Found
+            user_id = str(user['_id'])
+            logger.info(f"Retrieved user ID for username '{username}': {user_id}")
+            return {"user_id": user_id}, 200  # OK
+        except Exception as e:
+            logger.exception(f"Exception during retrieving user ID for username '{username}': {e}")
+            return {"error": "Failed to retrieve user ID."}, 500  # Internal Server Error

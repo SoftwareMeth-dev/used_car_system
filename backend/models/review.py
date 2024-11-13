@@ -2,10 +2,14 @@
 
 from utils.db import db
 from bson import ObjectId
+from bson.errors import InvalidId
 from datetime import datetime
 from models.user import User
 
 reviews_collection = db['reviews']
+used_car_collection = db['used_car_listings']  # Importing the used_car_listings collection
+
+
 
 def serialize_review(review):
     if not review:
@@ -19,84 +23,90 @@ def serialize_reviews(reviews):
 
 class Review:
     @staticmethod
-    def rate_and_review_agent(role, data):
+    def rate_and_review_agent(role, user_id, listing_id, data):
         """
-        Handles the logic for rating and reviewing an agent.
-        Validates input, checks user roles, and creates a review entry.
+        Handles the logic for rating and reviewing an agent based on user_id and listing_id.
+        Validates input, fetches agent_id from listing, and creates a review entry.
         Returns a tuple of (response_dict, status_code).
         """
         try:
             # Validate the role
             if role not in ['buyer', 'seller']:
-                return {"error": "Invalid role specified."}, 400
+                return {"error": "Invalid role specified. Must be 'buyer' or 'seller'."}, 400
 
             if not data:
                 return {"error": "No input data provided."}, 400
 
-            # Define required fields based on role
-            required_fields = ["agent_id", f"{role}_id", "rating"]
+            # Define required fields
+            required_fields = ["rating"]
             missing_fields = [field for field in required_fields if field not in data]
             if missing_fields:
                 return {"error": f"Missing required fields: {', '.join(missing_fields)}."}, 400
 
-            # Extract reviewer_id based on role
-            reviewer_id = data.get(f"{role}_id")
-            reviewer_role = role
+            # Extract fields
+            rating = data.get('rating')
+            review_text = data.get('review', '')
 
-            # Delegate to create_review_entry method
-            success, status = Review.create_review_entry({
-                "agent_id": data.get('agent_id'),
-                "reviewer_id": reviewer_id,
-                "reviewer_role": reviewer_role,
-                "rating": data.get('rating'),
-                "review": data.get('review', '')
+            # Validate rating
+            if not isinstance(rating, (int, float)) or not (1 <= rating <= 5):
+                return {"error": "Rating must be a number between 1 and 5."}, 400
+
+            # Validate user_id and listing_id
+            try:
+                user_oid = user_id
+                listing_id_str = listing_id
+                listing_oid = ObjectId(listing_id)
+            except (InvalidId, TypeError) as e:
+                return {"error": "Invalid user_id or listing_id format."}, 400
+
+            # Fetch the user
+            user = User.get_user_by_id(user_oid)
+            if not user:
+                return {"error": "User not found."}, 404
+
+            # Fetch the listing
+            listing = used_car_collection.find_one({"_id": listing_oid})
+            if not listing:
+                return {"error": "Listing not found."}, 404
+
+            agent_id = listing.get('seller_id')  # Assuming 'seller_id' is the agent
+            if not agent_id:
+                return {"error": "Agent associated with the listing not found."}, 404
+
+            # Prevent users from reviewing themselves if agent_id and user_id are the same
+            if agent_id == user_oid:
+                return {"error": "You cannot review yourself."}, 403
+                
+            # Check if the combination of agent_id, listing_id, and reviewer_id already exists
+            existing_review = reviews_collection.find_one({
+                "agent_id": agent_id,
+                "listing_id": listing_oid,
+                "reviewer_id": user_oid
             })
+            if existing_review:
+                logger.warning(f"User {user_id} has already reviewed agent {agent_id} for listing {listing_id}.")
+                return {"error": "You have already reviewed this agent for this listing."}, 400
 
+            # Create the review entry
+            review = {
+                "agent_id": agent_id,
+                "reviewer_id": user_oid,
+                "reviewer_role": role,  # 'buyer' or 'seller'
+                "rating": rating,
+                "review": review_text,
+                "listing_id": listing_id_str,
+                "created_at": datetime.utcnow()
+            }
+
+            success = Review.create_review(review)
             if success:
-                return {"success": True}, status
+                return {"success": True, "message": "Review created successfully."}, 201
             else:
-                return {"success": False}, status
+                return {"success": False, "error": "Failed to create review."}, 500
 
         except Exception as e:
-            print(f"Error in Review.rate_and_review_agent: {e}")
+            logger.exception(f"Error in Review.rate_and_review_agent: {e}")
             return {"error": "An error occurred while processing the review."}, 500
-
-    @staticmethod
-    def create_review_entry(data):
-        """
-        Creates a review from either a buyer or a seller.
-        Returns a tuple (success: bool, status_code: int).
-        """
-        required_fields = ['agent_id', 'rating', 'reviewer_id', 'reviewer_role']
-        missing_fields = [field for field in required_fields if field not in data]
-        if missing_fields:
-            return False, 400  # Bad Request
-
-        rating = data.get('rating') 
-        if not isinstance(rating, (int, float)) or not (1 <= rating <= 5):
-            return False, 400  # Bad Request
-
-        # Validate agent existence
-        agent = User.get_user_by_id(data['agent_id'])
-        if not agent:
-            return False, 404  # Not Found
-
-        # Validate reviewer existence and role
-        reviewer = User.get_user_by_id(data['reviewer_id'])
-        if not reviewer:
-            return False, 400  # Bad Request
-
-        review = {
-            "agent_id": data['agent_id'],
-            "reviewer_id": data['reviewer_id'],
-            "reviewer_role": data['reviewer_role'],  # 'buyer' or 'seller'
-            "rating": rating,
-            "review": data.get('review', ''),
-            "created_at": datetime.utcnow()
-        }
-
-        success = Review.create_review(review)
-        return (success, 201) if success else (False, 500)  # Created or Internal Server Error
 
     @staticmethod
     def create_review(review_data):
@@ -108,7 +118,7 @@ class Review:
             result = reviews_collection.insert_one(review_data)
             return result.inserted_id is not None
         except Exception as e:
-            print(f"Error creating review: {e}")
+            logger.exception(f"Error creating review: {e}")
             return False
 
     @staticmethod
@@ -128,7 +138,7 @@ class Review:
             return {"reviews": reviews, "average_rating": average_rating}, 200
 
         except Exception as e:
-            print(f"Error in Review.get_reviews_and_average: {e}")
+            logger.exception(f"Error in Review.get_reviews_and_average: {e}")
             return {"error": "An error occurred while retrieving reviews."}, 500
 
     @staticmethod
@@ -141,7 +151,7 @@ class Review:
             reviews = reviews_collection.find({"agent_id": agent_id})
             return serialize_reviews(reviews)
         except Exception as e:
-            print(f"Error fetching reviews for agent {agent_id}: {e}")
+            logger.exception(f"Error fetching reviews for agent {agent_id}: {e}")
             return []
 
     @staticmethod
@@ -160,7 +170,7 @@ class Review:
                 return round(result[0]['average_rating'], 2)
             return None
         except Exception as e:
-            print(f"Error calculating average rating for agent {agent_id}: {e}")
+            logger.exception(f"Error calculating average rating for agent {agent_id}: {e}")
             return None
 
     @staticmethod
@@ -192,7 +202,11 @@ class Review:
             review_text = data.get('review', '')
 
             # Fetch the existing review
-            existing_review = reviews_collection.find_one({"_id": ObjectId(review_id)})
+            try:
+                existing_review = reviews_collection.find_one({"_id": ObjectId(review_id)})
+            except (InvalidId, TypeError):
+                return {"error": "Invalid review_id format."}, 400
+
             if not existing_review:
                 return {"error": "Review not found."}, 404
 
@@ -205,7 +219,12 @@ class Review:
             if not reviewer_id:
                 return {"error": "Missing 'reviewer_id' in request data for authorization."}, 400
 
-            if existing_review.get('reviewer_id') != reviewer_id:
+            try:
+                reviewer_oid = ObjectId(reviewer_id)
+            except (InvalidId, TypeError):
+                return {"error": "Invalid reviewer_id format."}, 400
+
+            if existing_review.get('reviewer_id') != reviewer_oid:
                 return {"error": "Unauthorized. You can only edit your own reviews."}, 403
 
             # Proceed to update the review
@@ -226,5 +245,5 @@ class Review:
                 return {"success": False, "message": "No changes made to the review."}, 200
 
         except Exception as e:
-            print(f"Error in Review.edit_review_agent: {e}")
+            logger.exception(f"Error in Review.edit_review_agent: {e}")
             return {"error": "An error occurred while editing the review."}, 500

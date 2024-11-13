@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,7 +13,6 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  Slider,
   Snackbar,
   Alert,
   Table,
@@ -109,6 +107,7 @@ const AgentDashboard = () => {
     model: '',
     year: '',
     price: '',
+    seller_username: '',
   });
   const [listingErrors, setListingErrors] = useState({});
 
@@ -124,6 +123,10 @@ const AgentDashboard = () => {
 
   const [openDeleteListing, setOpenDeleteListing] = useState(false);
   const [listingToDelete, setListingToDelete] = useState(null);
+
+  // States for Sellers
+  const [sellers, setSellers] = useState([]); // List of sellers
+  const [selectedSellerUsername, setSelectedSellerUsername] = useState(''); // Selected seller's username
 
   // Retrieve Agent Information from localStorage
   const getAgentInfo = () => {
@@ -185,7 +188,7 @@ const AgentDashboard = () => {
       if (response.status === 200) {
         // Frontend filter to ensure only agent's listings are displayed
         const agentListings = response.data.listings.filter(
-          (listing) => listing.seller_id === userID
+          (listing) => listing.agent_id === userID
         );
         setListings(agentListings);
         setFilteredListings(agentListings);
@@ -218,6 +221,36 @@ const AgentDashboard = () => {
       setSnackbar({
         open: true,
         message: 'Failed to fetch listings.',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch Sellers from Backend
+  const fetchSellers = async () => {
+    setLoading(true);
+    try {
+      // Adjust the params based on your backend implementation
+      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_users`, {
+        params: { role: 'seller' }, // Assuming the backend can filter by role
+      });
+
+      if (response.status === 200) {
+        setSellers(response.data.users);
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to fetch sellers.',
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching sellers:', error);
+      setSnackbar({
+        open: true,
+        message: 'An error occurred while fetching sellers.',
         severity: 'error',
       });
     } finally {
@@ -305,22 +338,47 @@ const AgentDashboard = () => {
     } else if (isNaN(newListing.price) || Number(newListing.price) <= 0) {
       errors.price = 'Price must be a positive number.';
     }
+    if (!selectedSellerUsername) {
+      errors.seller_username = 'Seller username is required.';
+    }
     setListingErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleCreateListing = async () => {
     if (!validateCreateListing()) return;
+
     setLoading(true);
     try {
+      // Step 1: Get seller_id from selectedSellerUsername
+      const sellerIdResponse = await axios.get(`${config.API_BASE_URL}/users/get_user_id`, {
+        params: { username: selectedSellerUsername },
+      });
+
+      if (sellerIdResponse.status !== 200) {
+        setSnackbar({
+          open: true,
+          message: 'Failed to retrieve seller ID.',
+          severity: 'error',
+        });
+        return;
+      }
+
+      const seller_id = sellerIdResponse.data.user_id;
+
+      // Step 2: Create listing payload including seller_id
       const payload = {
-        seller_id: userID, // Use userID as agent identifier
+        agent_id: userID, // Agent's ID
+        seller_id: seller_id, // Seller's ID
         make: newListing.make,
         model: newListing.model,
         year: Number(newListing.year),
         price: Number(newListing.price),
       };
+
+      // Step 3: Send create listing request
       const response = await axios.post(`${config.API_BASE_URL}/used_car_agent/create_listing`, payload);
+
       if (response.status === 201) {
         setSnackbar({
           open: true,
@@ -329,12 +387,19 @@ const AgentDashboard = () => {
         });
         fetchListings(); // Refresh listings
         setOpenCreateListing(false); // Close dialog
-        setNewListing({ make: '', model: '', year: '', price: '' }); // Reset form
+        setNewListing({ make: '', model: '', year: '', price: '', seller_username: '' }); // Reset form
+        setSelectedSellerUsername(''); // Reset selected seller
         setListingErrors({});
       }
     } catch (error) {
       console.error('Error creating listing:', error);
-      if (error.response && error.response.data && error.response.data.error) {
+      if (error.response && error.response.status === 404) {
+        setSnackbar({
+          open: true,
+          message: 'Selected seller not found.',
+          severity: 'error',
+        });
+      } else if (error.response && error.response.data && error.response.data.error) {
         setSnackbar({
           open: true,
           message: JSON.stringify(error.response.data.error),
@@ -514,20 +579,14 @@ const AgentDashboard = () => {
    */
   const handleResetSearch = () => {
     setListingSearchQuery('');
-    setSelectedMakes(['All']);
-    setSelectedModels(['All']);
+    setSelectedMakes(availableMakes); // Reset to all available makes
+    setSelectedModels(availableModels); // Reset to all available models
     setSelectedYearRange(yearRange);
     setSelectedPriceRange(priceRange);
     setFilteredListings(listings);
     setListingPage(0); // Reset to first page after reset
   };
-
  
- 
-
-  // ----------------------- Render Functions -----------------------
- 
-
   // Render Listings with Advanced Filters
   const renderListings = () => {
     // Calculate the slice of listings to display based on pagination
@@ -537,6 +596,41 @@ const AgentDashboard = () => {
 
     return (
       <Box>
+        {/* Search and Filters Section */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Search Listings
+          </Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Search by Make or Model"
+                variant="outlined"
+                fullWidth
+                value={listingSearchQuery}
+                onChange={(e) => setListingSearchQuery(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={8} sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<SearchIcon />}
+                onClick={handleSearchListings}
+              >
+                Search
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleResetSearch}
+              >
+                Reset
+              </Button>
+            </Grid>
+          </Grid>
+        </Box>
+
         {/* Advanced Filter Section */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h6" gutterBottom>
@@ -545,122 +639,82 @@ const AgentDashboard = () => {
           <Grid container spacing={3}>
             {/* Make Filter */}
             <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel id="make-filter-label">Make</InputLabel>
-                <Select
-                  labelId="make-filter-label"
-                  multiple
-                  value={selectedMakes}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value.includes('All')) {
-                      setSelectedMakes(availableMakes);
-                    } else {
-                      setSelectedMakes(value);
-                    }
-                  }}
-                  label="Make"
-                  renderValue={(selected) => selected.join(', ')}
-                >
-                  {/* 'All' Option */}
-                  <MenuItem value="All">
-                    <Checkbox checked={selectedMakes.length === availableMakes.length} />
-                    <ListItemText primary="All" />
-                  </MenuItem>
-                  {availableMakes.map((make) => (
-                    <MenuItem key={make} value={make}>
-                      <Checkbox checked={selectedMakes.includes(make)} />
-                      <ListItemText primary={make} />
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TextField
+                label="Make"
+                variant="outlined"
+                fullWidth
+                value={selectedMakes.join(', ')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const makes = value.split(',').map((make) => make.trim()).filter((make) => make !== '');
+                  setSelectedMakes(makes);
+                }}
+              />
             </Grid>
 
             {/* Model Filter */}
             <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel id="model-filter-label">Model</InputLabel>
-                <Select
-                  labelId="model-filter-label"
-                  multiple
-                  value={selectedModels}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value.includes('All')) {
-                      setSelectedModels(availableModels);
-                    } else {
-                      setSelectedModels(value);
-                    }
-                  }}
-                  label="Model"
-                  renderValue={(selected) => selected.join(', ')}
-                >
-                  {/* 'All' Option */}
-                  <MenuItem value="All">
-                    <Checkbox checked={selectedModels.length === availableModels.length} />
-                    <ListItemText primary="All" />
-                  </MenuItem>
-                  {availableModels.map((model) => (
-                    <MenuItem key={model} value={model}>
-                      <Checkbox checked={selectedModels.includes(model)} />
-                      <ListItemText primary={model} />
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TextField
+                label="Model"
+                variant="outlined"
+                fullWidth
+                value={selectedModels.join(', ')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const models = value.split(',').map((model) => model.trim()).filter((model) => model !== '');
+                  setSelectedModels(models);
+                }}
+              />
             </Grid>
 
             {/* Year Range Filter */}
             <Grid item xs={12} md={3}>
-              <Typography gutterBottom>Year Range</Typography>
-              <Slider
-                value={selectedYearRange}
-                onChange={(e, newValue) => setSelectedYearRange(newValue)}
-                valueLabelDisplay="auto"
-                min={yearRange[0]}
-                max={yearRange[1]}
-                marks={[
-                  { value: yearRange[0], label: yearRange[0].toString() },
-                  { value: yearRange[1], label: yearRange[1].toString() },
-                ]}
+              <TextField
+                label="Year From"
+                variant="outlined"
+                fullWidth
+                type="number"
+                value={selectedYearRange[0]}
+                onChange={(e) => setSelectedYearRange([Number(e.target.value), selectedYearRange[1]])}
+                InputProps={{ inputProps: { min: yearRange[0], max: yearRange[1] } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Year To"
+                variant="outlined"
+                fullWidth
+                type="number"
+                value={selectedYearRange[1]}
+                onChange={(e) => setSelectedYearRange([selectedYearRange[0], Number(e.target.value)])}
+                InputProps={{ inputProps: { min: yearRange[0], max: yearRange[1] } }}
               />
             </Grid>
 
             {/* Price Range Filter */}
             <Grid item xs={12} md={3}>
-              <Typography gutterBottom>Price Range ($)</Typography>
-              <Slider
-                value={selectedPriceRange}
-                onChange={(e, newValue) => setSelectedPriceRange(newValue)}
-                valueLabelDisplay="auto"
-                min={priceRange[0]}
-                max={priceRange[1]}
-                marks={[
-                  { value: priceRange[0], label: `$${priceRange[0].toLocaleString()}` },
-                  { value: priceRange[1], label: `$${priceRange[1].toLocaleString()}` },
-                ]}
+              <TextField
+                label="Price From ($)"
+                variant="outlined"
+                fullWidth
+                type="number"
+                value={selectedPriceRange[0]}
+                onChange={(e) => setSelectedPriceRange([Number(e.target.value), selectedPriceRange[1]])}
+                InputProps={{ inputProps: { min: priceRange[0], max: priceRange[1] } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Price To ($)"
+                variant="outlined"
+                fullWidth
+                type="number"
+                value={selectedPriceRange[1]}
+                onChange={(e) => setSelectedPriceRange([selectedPriceRange[0], Number(e.target.value)])}
+                InputProps={{ inputProps: { min: priceRange[0], max: priceRange[1] } }}
               />
             </Grid>
           </Grid>
-          {/* Filter Actions */}
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<SearchIcon />}
-              onClick={handleSearchListings}
-            >
-              Apply Filters
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleResetSearch}
-            >
-              Reset Filters
-            </Button>
-          </Box>
         </Box>
 
         {/* Action Buttons */}
@@ -669,7 +723,10 @@ const AgentDashboard = () => {
             variant="contained"
             color="success"
             startIcon={<AddIcon />}
-            onClick={() => setOpenCreateListing(true)}
+            onClick={() => {
+              setOpenCreateListing(true);
+              fetchSellers(); // Fetch sellers when dialog opens
+            }}
           >
             Create Listing
           </Button>
@@ -689,6 +746,7 @@ const AgentDashboard = () => {
                   <TableCell>Model</TableCell>
                   <TableCell>Year</TableCell>
                   <TableCell>Price</TableCell>
+                  <TableCell>Seller</TableCell> {/* Added Seller Column */}
                   <TableCell>Created At</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -701,6 +759,7 @@ const AgentDashboard = () => {
                       <TableCell>{listing.model}</TableCell>
                       <TableCell>{listing.year}</TableCell>
                       <TableCell>${listing.price.toLocaleString()}</TableCell>
+                      <TableCell>{listing.seller_username}</TableCell> {/* Display Seller Username */}
                       <TableCell>{new Date(listing.created_at).toLocaleString()}</TableCell>
                       <TableCell align="center">
                         <Button
@@ -737,7 +796,7 @@ const AgentDashboard = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       No listings found.
                     </TableCell>
                   </TableRow>
@@ -760,10 +819,10 @@ const AgentDashboard = () => {
               sx={{ mt: 2 }}
             />
           </>
-         
-        )} </Box>)}
-      
-
+        )}
+      </Box>
+  )  };
+  
   /**
    * User Story: As a used car agent, I want to view the ratings and reviews so that I can understand client feedback and improve my services.
    * Trigger: The agent navigates to the Reviews view.
@@ -1082,56 +1141,56 @@ const AgentDashboard = () => {
           onClose={() => {
             setOpenCreateListing(false);
             setListingErrors({});
+            setSelectedSellerUsername('');
           }}
           fullWidth
           maxWidth="sm"
         >
           <DialogTitle>Create New Listing</DialogTitle>
           <DialogContent>
+            <TextField
+              label="Make"
+              name="make"
+              fullWidth
+              required
+              margin="normal"
+              value={newListing.make}
+              onChange={(e) => setNewListing({ ...newListing, make: e.target.value })}
+              error={Boolean(listingErrors.make)}
+              helperText={listingErrors.make}
+            />
+            <TextField
+              label="Model"
+              name="model"
+              fullWidth
+              required
+              margin="normal"
+              value={newListing.model}
+              onChange={(e) => setNewListing({ ...newListing, model: e.target.value })}
+              error={Boolean(listingErrors.model)}
+              helperText={listingErrors.model}
+            />
             <FormControl fullWidth margin="normal">
-              <InputLabel id="create-make-label">Make</InputLabel>
+              <InputLabel id="create-seller-label">Seller Username</InputLabel>
               <Select
-                labelId="create-make-label"
-                label="Make"
-                value={newListing.make}
-                onChange={(e) => setNewListing({ ...newListing, make: e.target.value })}
-                error={Boolean(listingErrors.make)}
+                labelId="create-seller-label"
+                label="Seller Username"
+                value={selectedSellerUsername}
+                onChange={(e) => setSelectedSellerUsername(e.target.value)}
+                error={Boolean(listingErrors.seller_username)}
               >
-                {availableMakes.map((make) => (
-                  <MenuItem key={make} value={make}>
-                    {make}
+                {sellers.map((seller) => (
+                  <MenuItem key={seller._id} value={seller.username}>
+                    {seller.username}
                   </MenuItem>
                 ))}
               </Select>
-              {listingErrors.make && (
+              {listingErrors.seller_username && (
                 <Typography variant="caption" color="error">
-                  {listingErrors.make}
+                  {listingErrors.seller_username}
                 </Typography>
               )}
-            </FormControl>
-
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="create-model-label">Model</InputLabel>
-              <Select
-                labelId="create-model-label"
-                label="Model"
-                value={newListing.model}
-                onChange={(e) => setNewListing({ ...newListing, model: e.target.value })}
-                error={Boolean(listingErrors.model)}
-              >
-                {availableModels.map((model) => (
-                  <MenuItem key={model} value={model}>
-                    {model}
-                  </MenuItem>
-                ))}
-              </Select>
-              {listingErrors.model && (
-                <Typography variant="caption" color="error">
-                  {listingErrors.model}
-                </Typography>
-              )}
-            </FormControl>
-
+            </FormControl> 
             <TextField
               label="Year"
               name="year"
@@ -1139,19 +1198,19 @@ const AgentDashboard = () => {
               required
               margin="normal"
               type="number"
-              value={newListing.year}
+              value={newListing.year || ''}
               onChange={(e) => setNewListing({ ...newListing, year: e.target.value })}
               error={Boolean(listingErrors.year)}
               helperText={listingErrors.year}
-            />
+            /> 
             <TextField
-              label="Price"
+              label="Price ($)"
               name="price"
               fullWidth
               required
               margin="normal"
               type="number"
-              value={newListing.price}
+              value={newListing.price || ''}
               onChange={(e) => setNewListing({ ...newListing, price: e.target.value })}
               error={Boolean(listingErrors.price)}
               helperText={listingErrors.price}
@@ -1162,6 +1221,7 @@ const AgentDashboard = () => {
               onClick={() => {
                 setOpenCreateListing(false);
                 setListingErrors({});
+                setSelectedSellerUsername('');
               }}
             >
               Cancel
@@ -1189,50 +1249,28 @@ const AgentDashboard = () => {
                 <Typography variant="subtitle1" gutterBottom>
                   Listing ID: {selectedListing._id}
                 </Typography>
-                <FormControl fullWidth margin="normal">
-                  <InputLabel id="update-make-label">Make</InputLabel>
-                  <Select
-                    labelId="update-make-label"
-                    label="Make"
-                    value={updatedListingData.make}
-                    onChange={(e) => setUpdatedListingData({ ...updatedListingData, make: e.target.value })}
-                    error={Boolean(updateListingErrors.make)}
-                  >
-                    {availableMakes.map((make) => (
-                      <MenuItem key={make} value={make}>
-                        {make}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {updateListingErrors.make && (
-                    <Typography variant="caption" color="error">
-                      {updateListingErrors.make}
-                    </Typography>
-                  )}
-                </FormControl>
-
-                <FormControl fullWidth margin="normal">
-                  <InputLabel id="update-model-label">Model</InputLabel>
-                  <Select
-                    labelId="update-model-label"
-                    label="Model"
-                    value={updatedListingData.model}
-                    onChange={(e) => setUpdatedListingData({ ...updatedListingData, model: e.target.value })}
-                    error={Boolean(updateListingErrors.model)}
-                  >
-                    {availableModels.map((model) => (
-                      <MenuItem key={model} value={model}>
-                        {model}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {updateListingErrors.model && (
-                    <Typography variant="caption" color="error">
-                      {updateListingErrors.model}
-                    </Typography>
-                  )}
-                </FormControl>
-
+                <TextField
+                  label="Make"
+                  name="make"
+                  fullWidth
+                  required
+                  margin="normal"
+                  value={updatedListingData.make}
+                  onChange={(e) => setUpdatedListingData({ ...updatedListingData, make: e.target.value })}
+                  error={Boolean(updateListingErrors.make)}
+                  helperText={updateListingErrors.make}
+                />
+                <TextField
+                  label="Model"
+                  name="model"
+                  fullWidth
+                  required
+                  margin="normal"
+                  value={updatedListingData.model}
+                  onChange={(e) => setUpdatedListingData({ ...updatedListingData, model: e.target.value })}
+                  error={Boolean(updateListingErrors.model)}
+                  helperText={updateListingErrors.model}
+                />
                 <TextField
                   label="Year"
                   name="year"
@@ -1246,7 +1284,7 @@ const AgentDashboard = () => {
                   helperText={updateListingErrors.year}
                 />
                 <TextField
-                  label="Price"
+                  label="Price ($)"
                   name="price"
                   fullWidth
                   required
