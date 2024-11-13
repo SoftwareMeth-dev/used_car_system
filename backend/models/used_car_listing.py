@@ -380,46 +380,47 @@ class UsedCarListing:
     def get_listings_with_reviews(seller_id):
         """
         Retrieves all listings by the seller and appends the corresponding review_id if available.
-        
+
         Parameters:
             seller_id (str): The ObjectId string of the seller.
-            
+
         Returns:
             JSON response containing the listings with appended review_id.
         """
-         
         try:
-            # Validate and convert seller_id to ObjectId
-            seller_oid = seller_id
-        except Exception as e:
+            # Step 1: Validate and convert seller_id to ObjectId
+            seller_oid = (seller_id)
+            logger.debug(f"Converted seller_id to ObjectId: {seller_oid}")
+        except (InvalidId, TypeError) as e:
             logger.error(f"Invalid seller_id format: {seller_id}. Error: {e}")
             return {"error": "Invalid seller_id format."}, 400  # Bad Request
+
         try:
-            # Step 1: Query all listings by the seller  
-            seller_listings_cursor = used_car_collection.find({'seller_id': seller_oid}) 
-            seller_listings = list(seller_listings_cursor)  
-            
+            # Step 2: Query all listings by the seller
+            seller_listings_cursor = used_car_collection.find({'seller_id': seller_oid})
+            seller_listings = list(seller_listings_cursor)
+            logger.debug(f"Number of listings found: {len(seller_listings)}")
+
             if not seller_listings:
                 logger.info(f"No listings found for seller_id: {seller_id}")
                 return {"message": "No listings found for this seller.", "listings": []}, 200  # OK
 
             # Extract listing_ids for querying reviews
             listing_ids = [listing['_id'] for listing in seller_listings]
+            logger.debug(f"Listing IDs: {listing_ids}")
 
-            # Step 2: Query all reviews where reviewer_id matches seller_id and listing_id is in listing_ids
+            # Step 3: Query all reviews where reviewer_id matches seller_id
             seller_reviews_cursor = reviews_collection.find({
-                'reviewer_id': seller_oid,
-                'listing_id': {'$in': listing_ids}
+                'reviewer_id': seller_oid, 
             })
-            seller_reviews = list(seller_reviews_cursor)
+            seller_reviews = list(seller_reviews_cursor) 
+            logger.debug(f"Number of reviews found: {len(seller_reviews)}")
 
             # Create a mapping from listing_id to review_id
-            review_map = {}
-            for review in seller_reviews:
-                listing_id_str = str(review['listing_id'])
-                review_map[listing_id_str] = str(review['_id'])
+            review_map = {str(review['listing_id']): str(review['_id']) for review in seller_reviews} 
+            logger.debug(f"Review map: {review_map}")
 
-            # Step 3: Append review_id to each listing
+            # Step 4: Append review_id to each listing
             augmented_listings = []
             for listing in seller_listings:
                 listing_id_str = str(listing['_id'])
@@ -434,6 +435,7 @@ class UsedCarListing:
                     'created_at': listing.get('created_at').isoformat() if listing.get('created_at') else '',
                     'review_id': review_map.get(listing_id_str, None)
                 }
+                logger.debug(f"Augmented Listing: {augmented_listing}")
                 augmented_listings.append(augmented_listing)
 
             logger.info(f"Retrieved {len(augmented_listings)} listings for seller_id: {seller_id}")
@@ -442,36 +444,6 @@ class UsedCarListing:
         except Exception as e:
             logger.exception(f"Error retrieving listings with reviews for seller_id {seller_id}: {e}")
             return {"error": "Failed to retrieve listings with reviews."}, 500  # Internal Server Error
-
-    @staticmethod
-    def track_view(data):
-        """
-        Increments the view count for a listing.
-        Expects data to contain 'listing_id'.
-        Returns a tuple of (response_dict, status_code).
-        """
-        listing_id = data.get('listing_id')
-        if not listing_id:
-            logger.warning("Missing 'listing_id' in request data.")
-            return {"error": "Missing 'listing_id'."}, 400  # Bad Request
-
-        try:
-            # Update the used_car_collection by incrementing 'views'
-            result = used_car_collection.update_one(
-                {"_id": ObjectId(listing_id)},
-                {"$inc": {"views": 1}}
-            )
-
-            if result.matched_count == 0:
-                logger.warning(f"Listing with listing_id {listing_id} not found.")
-                return {"error": "Listing not found."}, 404  # Not Found
-
-            logger.info(f"View tracked for listing_id: {listing_id}")
-            return {"success": True}, 200
-
-        except Exception as e:
-            logger.exception(f"Error tracking view for listing_id {listing_id}: {e}")
-            return {"success": False, "error": "Failed to track view."}, 500
 
     @staticmethod
     def track_shortlist(data):
