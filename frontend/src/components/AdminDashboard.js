@@ -39,6 +39,10 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import config from '../config';
 import HomeIcon from '@mui/icons-material/Home';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonIcon from '@mui/icons-material/Person';
 // Define the width of the sidebar drawer
@@ -762,7 +766,7 @@ const AdminDashboard = () => {
             </FormControl>
           </Box>
           <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-            <Button variant="contained" color="primary" onClick={handleApplyUserFilters}>
+            <Button variant="contained" color="primary" startIcon={<SearchIcon />} onClick={handleApplyUserFilters}>
               Search
             </Button>
             <Button variant="outlined" color="secondary" onClick={handleResetUserFilters}>
@@ -773,7 +777,7 @@ const AdminDashboard = () => {
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-          <Button variant="contained" color="primary" onClick={() => setOpenCreateUser(true)}>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => setOpenCreateUser(true)}>
             Create User
           </Button>
         </Box>
@@ -807,6 +811,7 @@ const AdminDashboard = () => {
                         <Button
                           variant="contained"
                           color="info"
+                          startIcon={<EditIcon />}
                           onClick={() => {
                             setSelectedUser(user);
                             setUpdatedUserData({ email: user.email, role: user.role });
@@ -904,7 +909,7 @@ const AdminDashboard = () => {
             />
           </Box>
           <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-            <Button variant="contained" color="primary" onClick={handleSearchProfiles}>
+            <Button variant="contained" color="primary" startIcon={<SearchIcon />} onClick={handleSearchProfiles}>
               Search
             </Button>
             <Button variant="outlined" color="secondary" onClick={handleResetProfileQuery}>
@@ -915,7 +920,7 @@ const AdminDashboard = () => {
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-          <Button variant="contained" color="primary" onClick={() => setOpenCreateProfile(true)}>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => setOpenCreateProfile(true)}>
             Create Profile
           </Button>
         </Box>
@@ -952,6 +957,7 @@ const AdminDashboard = () => {
                         <Button
                           variant="contained"
                           color="info"
+                          startIcon={<EditIcon />}
                           onClick={() => {
                             setSelectedProfile(profile);
                             setUpdatedProfileData({ rights: profile.rights });
