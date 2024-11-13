@@ -2,7 +2,7 @@
 
 from flask import Blueprint, jsonify
 from models.user import User 
-reenable_user_bp = Blueprint('reenable_user', __name__, url_prefix='/api/user_admin')
+reenable_user_bp = Blueprint('reenable_user', __name__, url_prefix='/api')
 
 class ReenableUserController:
     def __init__(self):

@@ -3,7 +3,7 @@
 from flask import Blueprint, jsonify
 from models.used_car_listing import UsedCarListing
 
-delete_listing_bp = Blueprint('delete_listing', __name__, url_prefix='/api/used_car_agent')
+delete_listing_bp = Blueprint('delete_listing', __name__, url_prefix='/api')
 
 class DeleteListingController:
     def __init__(self):

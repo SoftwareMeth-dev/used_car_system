@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.buyer_listing import BuyerListing
 
-save_listing_bp = Blueprint('save_listing', __name__, url_prefix='/api/buyer')
+save_listing_bp = Blueprint('save_listing', __name__, url_prefix='/api')
 
 class SaveListingController:
     def __init__(self):

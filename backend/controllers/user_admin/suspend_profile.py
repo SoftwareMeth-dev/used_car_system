@@ -3,7 +3,7 @@
 from flask import Blueprint, jsonify
 from models.profile import Profile
 
-suspend_profile_bp = Blueprint('suspend_profile', __name__, url_prefix='/api/user_admin')
+suspend_profile_bp = Blueprint('suspend_profile', __name__, url_prefix='/api')
 
 class SuspendProfileController:
     def __init__(self):

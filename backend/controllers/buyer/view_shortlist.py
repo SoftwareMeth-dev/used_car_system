@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.buyer_listing import BuyerListing
 
-view_shortlist_bp = Blueprint('view_shortlist', __name__, url_prefix='/api/buyer')
+view_shortlist_bp = Blueprint('view_shortlist', __name__, url_prefix='/api')
 
 class ViewShortlistController:
     def __init__(self):

@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.user import User
 
-view_users_bp = Blueprint('view_users', __name__, url_prefix='/api/user_admin')
+view_users_bp = Blueprint('view_users', __name__, url_prefix='/api')
 
 class ViewUsersController:
     def __init__(self):

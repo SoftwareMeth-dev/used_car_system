@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.user import User
 
-update_user_bp = Blueprint('update_user', __name__, url_prefix='/api/user_admin')
+update_user_bp = Blueprint('update_user', __name__, url_prefix='/api')
 
 class UpdateUserController:
     def __init__(self):

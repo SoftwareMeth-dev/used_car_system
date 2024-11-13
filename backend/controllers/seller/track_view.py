@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing  # Updated import
 
-track_view_bp = Blueprint('track_view', __name__, url_prefix='/api/seller')
+track_view_bp = Blueprint('track_view', __name__, url_prefix='/api')
 
 class TrackViewController:
     def __init__(self):

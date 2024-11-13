@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
 
-update_listing_bp = Blueprint('update_listing', __name__, url_prefix='/api/used_car_agent')
+update_listing_bp = Blueprint('update_listing', __name__, url_prefix='/api')
 
 class UpdateListingController:
     def __init__(self):

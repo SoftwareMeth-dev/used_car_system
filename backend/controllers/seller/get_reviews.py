@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
 
 # Create a Blueprint for seller-related routes
-get_reviews_bp = Blueprint('seller', __name__, url_prefix='/api/seller')
+get_reviews_bp = Blueprint('seller', __name__, url_prefix='/api')
 
 @get_reviews_bp.route('/get_listings_with_reviews/<seller_id>', methods=['GET'])
 def get_listings_with_reviews(seller_id):

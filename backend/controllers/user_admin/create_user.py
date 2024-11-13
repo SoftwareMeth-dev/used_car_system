@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.user import User
 
-create_user_bp = Blueprint('create_user', __name__, url_prefix='/api/user_admin')
+create_user_bp = Blueprint('create_user', __name__, url_prefix='/api')
 
 class CreateUserController:
     def __init__(self):

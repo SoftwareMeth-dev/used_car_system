@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.user import User
 
-search_users_bp = Blueprint('search_users', __name__, url_prefix='/api/user_admin')
+search_users_bp = Blueprint('search_users', __name__, url_prefix='/api')
 
 class SearchUsersController:
     def __init__(self):

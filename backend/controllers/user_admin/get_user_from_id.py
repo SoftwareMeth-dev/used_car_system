@@ -13,7 +13,7 @@ formatter = logging.Formatter(
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-get_user_from_id_bp = Blueprint('user_bp', __name__, url_prefix='/api/users')
+get_user_from_id_bp = Blueprint('user_bp', __name__, url_prefix='/api')
 
 @get_user_from_id_bp.route('/get_user_id', methods=['GET'])
 def get_user_id():
