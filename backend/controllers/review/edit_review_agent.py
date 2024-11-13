@@ -13,7 +13,7 @@ class EditReviewAgentController:
     def register_routes(self):
         # Route for editing an existing review
         edit_review_agent_bp.add_url_rule(
-            '/<role>/edit_review_agent/<review_id>',
+            '/edit_review_agent/<review_id>',
             view_func=self.edit_review_agent,
             methods=['PUT']
         )

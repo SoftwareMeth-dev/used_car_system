@@ -12,7 +12,7 @@ class RateReviewAgentController:
     def register_routes(self):
         # Updated route to include user_id and listing_id
         rate_review_agent_bp.add_url_rule(
-            '/<role>/rate_review_agent/<user_id>/<listing_id>',
+            '/rate_review_agent/<user_id>/<listing_id>',
             view_func=self.rate_review_agent,
             methods=['POST']
         )
