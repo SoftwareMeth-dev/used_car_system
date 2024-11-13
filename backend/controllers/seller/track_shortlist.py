@@ -1,7 +1,7 @@
 # backend/controllers/seller/track_shortlist_controller.py
 
 from flask import Blueprint, request, jsonify
-from models.seller_metrics import SellerMetrics
+from models.used_car_listing import UsedCarListing  # Updated import
 
 track_shortlist_bp = Blueprint('track_shortlist', __name__, url_prefix='/api/seller')
 
@@ -15,10 +15,10 @@ class TrackShortlistController:
     def track_shortlist(self):
         """
         Endpoint to track when a listing is added to a shortlist.
-        Delegates processing to SellerMetricsModel.
+        Delegates processing to UsedCarListing model.
         """
         data = request.get_json()
-        response, status_code = SellerMetrics.track_shortlist(data)
+        response, status_code = UsedCarListing.track_shortlist(data)
         return jsonify(response), status_code
 
 # Instantiate the controller to register routes
