@@ -15,6 +15,7 @@ logger.addHandler(handler)
 
 used_car_collection = db['used_car_listings']
 reviews_collection = db['reviews']  # Added Reviews Collection
+users_collection = db['users']      # Added Users Collection
 
 def serialize_listing(listing):
     if not listing:
@@ -416,45 +417,68 @@ class UsedCarListing:
         except Exception as e:
             logger.exception(f"Error retrieving metrics for seller_id {seller_id}: {e}")
             return {"error": "Failed to retrieve metrics for the seller."}, 500
-
+ 
     @staticmethod
-    def get_listings_with_reviews(seller_id):
+    def get_listings_with_reviews(user_id):
         """
-        Retrieves all listings by the seller and appends the corresponding review_id if available.
+        Retrieves all listings associated with a user (either as a seller or buyer)
+        and appends the corresponding review_id if available.
 
         Parameters:
-            seller_id (str): The ObjectId string of the seller.
+            user_id (str): The ObjectId string of the user.
 
         Returns:
             JSON response containing the listings with appended review_id.
         """
-        if not seller_id:
-            logger.warning("Missing 'seller_id' parameter.")
-            return {"error": "Missing 'seller_id' parameter."}, 400  # Bad Request
+        if not user_id:
+            logger.warning("Missing 'user_id' parameter.")
+            return {"error": "Missing 'user_id' parameter."}, 400  # Bad Request
 
         try:
-            # Step 1: Validate and convert seller_id to ObjectId
-            seller_oid = ObjectId(seller_id)
-            logger.debug(f"Converted seller_id to ObjectId: {seller_oid}")
+            # Step 1: Validate and convert user_id to ObjectId
+            user_oid = ObjectId(user_id)
+            logger.debug(f"Converted user_id to ObjectId: {user_oid}")
         except (InvalidId, TypeError) as e:
-            logger.error(f"Invalid seller_id format: {seller_id}. Error: {e}")
-            return {"error": "Invalid seller_id format."}, 400  # Bad Request
+            logger.error(f"Invalid user_id format: {user_id}. Error: {e}")
+            return {"error": "Invalid user_id format."}, 400  # Bad Request
 
         try:
-            # Step 2: Query all listings by the seller
-            seller_listings_cursor = used_car_collection.find({'seller_id': seller_oid})
-            seller_listings = list(seller_listings_cursor)
-            logger.debug(f"Number of listings found: {len(seller_listings)}")
+            # Step 2: Fetch the user from the users collection to determine the role
+            user = users_collection.find_one({"_id": user_oid})
+            if not user:
+                logger.warning(f"User not found with user_id: {user_id}")
+                return {"error": "User not found."}, 404  # Not Found
 
-            if not seller_listings:
-                logger.info(f"No listings found for seller_id: {seller_id}")
-                return {"message": "No listings found for this seller.", "listings": []}, 200  # OK
+            role = user.get('role')
+            if not role:
+                logger.warning(f"Role not defined for user_id: {user_id}")
+                return {"error": "User role not defined."}, 400  # Bad Request
+
+            logger.debug(f"User role for user_id {user_id}: {role}")
+
+            # Step 3: Determine the field to query based on role
+            if role.lower() == 'seller':
+                query_field = 'seller_id'
+            elif role.lower() == 'buyer':
+                query_field = 'buyer_id'
+            else:
+                logger.warning(f"Invalid role '{role}' for user_id: {user_id}")
+                return {"error": f"Invalid user role: {role}."}, 400  # Bad Request
+
+            # Step 4: Query listings based on the determined field
+            listings_cursor = used_car_collection.find({query_field: user_id})
+            listings = list(listings_cursor)
+            logger.debug(f"Number of listings found for user_id {user_id}: {len(listings)}")
+
+            if not listings:
+                logger.info(f"No listings found for user_id: {user_id}")
+                return {"message": "No listings found for this user.", "listings": []}, 200  # OK
 
             # Extract listing_ids for querying reviews
-            listing_ids = [listing['_id'] for listing in seller_listings]
+            listing_ids = [listing['_id'] for listing in listings]
             logger.debug(f"Listing IDs: {listing_ids}")
-
-            # Step 3: Query all reviews where listing_id matches
+            
+            # Step 5: Query all reviews where listing_id matches
             seller_reviews_cursor = reviews_collection.find({
                 'listing_id': {"$in": listing_ids}
             })
@@ -465,9 +489,9 @@ class UsedCarListing:
             review_map = {str(review['listing_id']): str(review['_id']) for review in seller_reviews} 
             logger.debug(f"Review map: {review_map}")
 
-            # Step 4: Append review_id to each listing
+            # Step 6: Append review_id to each listing
             augmented_listings = []
-            for listing in seller_listings:
+            for listing in listings:
                 listing_id_str = str(listing['_id'])
                 augmented_listing = {
                     'listing_id': listing_id_str,
@@ -483,9 +507,9 @@ class UsedCarListing:
                 logger.debug(f"Augmented Listing: {augmented_listing}")
                 augmented_listings.append(augmented_listing)
 
-            logger.info(f"Retrieved {len(augmented_listings)} listings for seller_id: {seller_id}")
+            logger.info(f"Retrieved {len(augmented_listings)} listings for user_id: {user_id}")
             return {"listings": augmented_listings}, 200  # OK
 
         except Exception as e:
-            logger.exception(f"Error retrieving listings with reviews for seller_id {seller_id}: {e}")
+            logger.exception(f"Error retrieving listings with reviews for user_id {user_id}: {e}")
             return {"error": "Failed to retrieve listings with reviews."}, 500  # Internal Server Error
