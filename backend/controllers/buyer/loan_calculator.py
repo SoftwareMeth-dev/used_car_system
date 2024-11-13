@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.loan_calculator import LoanCalculator
 
-loan_calculator_bp = Blueprint('loan_calculator', __name__, url_prefix='/api/buyer')
+loan_calculator_bp = Blueprint('loan_calculator', __name__, url_prefix='/api')
 
 class LoanCalculatorController:
     def __init__(self):

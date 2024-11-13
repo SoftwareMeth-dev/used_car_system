@@ -3,7 +3,7 @@
 from flask import Blueprint, jsonify
 from models.profile import Profile
 
-reenable_profile_bp = Blueprint('reenable_profile', __name__, url_prefix='/api/user_admin')
+reenable_profile_bp = Blueprint('reenable_profile', __name__, url_prefix='/api')
 
 class ReenableProfileController:
     def __init__(self):

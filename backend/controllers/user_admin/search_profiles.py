@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.profile import Profile
 
-search_profiles_bp = Blueprint('search_profiles', __name__, url_prefix='/api/user_admin')
+search_profiles_bp = Blueprint('search_profiles', __name__, url_prefix='/api')
 
 class SearchProfilesController:
     def __init__(self):

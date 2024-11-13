@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.profile import Profile
 
-view_profiles_bp = Blueprint('view_profiles', __name__, url_prefix='/api/user_admin')
+view_profiles_bp = Blueprint('view_profiles', __name__, url_prefix='/api')
 
 class ViewProfilesController:
     def __init__(self):

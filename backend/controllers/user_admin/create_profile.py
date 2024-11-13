@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.profile import Profile
 
-create_profile_bp = Blueprint('create_profile', __name__, url_prefix='/api/user_admin')
+create_profile_bp = Blueprint('create_profile', __name__, url_prefix='/api')
 
 class CreateProfileController:
     def __init__(self):

@@ -3,7 +3,7 @@
 from flask import Blueprint, jsonify, request
 from models.seller_metrics import SellerMetrics
 
-get_metrics_bp = Blueprint('get_metrics', __name__, url_prefix='/api/seller')
+get_metrics_bp = Blueprint('get_metrics', __name__, url_prefix='/api')
 
 class GetMetricsController:
     def __init__(self):
