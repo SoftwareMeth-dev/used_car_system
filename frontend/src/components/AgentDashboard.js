@@ -345,6 +345,7 @@ const AgentDashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // US #14
   const handleCreateListing = async () => {
     if (!validateCreateListing()) return;
 
@@ -440,6 +441,7 @@ const AgentDashboard = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // US #16
   const handleUpdateListing = async () => {
     if (!validateUpdateListing()) return;
     setLoading(true);
@@ -491,6 +493,8 @@ const AgentDashboard = () => {
    * User Story: As a used car agent, I want to delete used car listings so that sold or unavailable cars are removed.
    * Trigger: The agent confirms the deletion of a listing.
    */
+
+  // US #17
   const handleDeleteListing = async () => {
     setLoading(true);
     try {
@@ -530,6 +534,8 @@ const AgentDashboard = () => {
    * User Story: As a used car agent, I want to search for used car listings so that I can find specific cars.
    * Trigger: The agent enters a search query and submits.
    */
+
+  // US #18
   const handleSearchListings = () => {
     let filtered = [...listings];
 
@@ -588,6 +594,8 @@ const AgentDashboard = () => {
   };
  
   // Render Listings with Advanced Filters
+
+  // US #15
   const renderListings = () => {
     // Calculate the slice of listings to display based on pagination
     const start = listingPage * listingRowsPerPage;
@@ -612,6 +620,7 @@ const AgentDashboard = () => {
               />
             </Grid>
             <Grid item xs={12} md={8} sx={{ display: 'flex', gap: 2 }}>
+              {/* US #18 */}
               <Button
                 variant="contained"
                 color="primary"
@@ -827,6 +836,8 @@ const AgentDashboard = () => {
    * User Story: As a used car agent, I want to view the ratings and reviews so that I can understand client feedback and improve my services.
    * Trigger: The agent navigates to the Reviews view.
    */
+
+  // US #36
   const renderReviews = () => {
     return (
       <Box>
@@ -941,6 +952,8 @@ const AgentDashboard = () => {
    * User Story: As a used car agent, I want to logout so that I can exit the system.
    * Trigger: The agent clicks the logout button.
    */
+
+  // US #20
   const handleLogout = () => {
     // Clear localStorage
     localStorage.removeItem('user');
@@ -1003,6 +1016,7 @@ const AgentDashboard = () => {
                   boxShadow: 6,
                 },
               }}
+              // US #15
               onClick={() => handleNavigation('listings')}
             >
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
@@ -1027,6 +1041,7 @@ const AgentDashboard = () => {
                   boxShadow: 6,
                 },
               }}
+              // US #36
               onClick={() => handleNavigation('reviews')}
             >
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
@@ -1110,6 +1125,7 @@ const AgentDashboard = () => {
                 ? 'Client Reviews'
                 : 'Dashboard'}
             </Typography>
+            {/* US #20 */}
             <Button color="inherit" onClick={handleLogout}>
               Logout
             </Button>
@@ -1134,7 +1150,7 @@ const AgentDashboard = () => {
         {currentView === 'reviews' && renderReviews()}
 
         {/* ----------------------- Listings Dialogs ----------------------- */}
-
+                
         {/* Create Listing Dialog */}
         <Dialog
           open={openCreateListing}
@@ -1226,6 +1242,7 @@ const AgentDashboard = () => {
             >
               Cancel
             </Button>
+            {/* US #14 */}
             <Button onClick={handleCreateListing} variant="contained" color="primary" disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'Create'}
             </Button>
@@ -1307,6 +1324,7 @@ const AgentDashboard = () => {
             >
               Cancel
             </Button>
+            {/* US #16 */}
             <Button onClick={handleUpdateListing} variant="contained" color="primary" disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'Update'}
             </Button>
@@ -1330,6 +1348,7 @@ const AgentDashboard = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenDeleteListing(false)}>Cancel</Button>
+            {/* US #17 */}
             <Button onClick={handleDeleteListing} variant="contained" color="error" disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'Delete'}
             </Button>
