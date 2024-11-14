@@ -11,7 +11,9 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import config from '../config'; // Adjust the import path as necessary
+import config from '../config';  
+import backgroundVideo from '../Comp_8.mp4';
+import './Login.css';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -22,7 +24,7 @@ const Login = () => {
   });
 
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false); // To handle loading state
+  const [loading, setLoading] = useState(false);  
 
   const handleChange = (e) => {
     setCredentials({
@@ -46,7 +48,7 @@ const Login = () => {
         console.log(response.data)
         
         // Extract userID from user object (assuming it's '_id')
-        const userID = user._id || user.id; // Adjust based on your backend's response
+        const userID = user._id || user.id; 
 
         // Save user, profile, and userID to localStorage
         localStorage.setItem('user', JSON.stringify(user));
@@ -63,7 +65,7 @@ const Login = () => {
             break;
           case 'used_car_agent':
             console.log('Redirecting to agent dashboard');
-            navigate('/used_car_agent'); // Ensure this matches ProtectedRoute
+            navigate('/used_car_agent'); 
             break;
           case 'seller':
             console.log('Redirecting to seller dashboard');
@@ -105,56 +107,64 @@ const Login = () => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          marginTop: 8,
-          padding: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          boxShadow: 3,
-          borderRadius: 2,
-        }}
-      >
-        <Typography component="h1" variant="h5">
-          Login
-        </Typography>
-        {error && <Alert severity="error" sx={{ width: '100%', mt: 2 }}>{error}</Alert>}
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-          <TextField
-            required
-            fullWidth
-            label="Username"
-            name="username"
-            value={credentials.username}
-            onChange={handleChange}
-            margin="normal"
-          />
-          <TextField
-            required
-            fullWidth
-            label="Password"
-            type="password"
-            name="password"
-            value={credentials.password}
-            onChange={handleChange}
-            margin="normal"
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            color="primary"
-            sx={{ mt: 3 }}
-            disabled={loading} // Disable button while loading
-          >
-            {loading ? <CircularProgress size={24} /> : 'Login'}
-          </Button>
+    <div className="login-page">
+      {/* Video Background */}
+      <video autoPlay loop muted className="background-video">
+        <source src={backgroundVideo} type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <Container maxWidth="sm" className="login-container">
+        <Box
+          sx={{
+            padding: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            boxShadow: 3,
+            borderRadius: 2,
+            backgroundColor: 'rgba(255, 255, 255, 0.8)', // Semi-transparent background
+          }}
+        >
+          <Typography component="h1" variant="h4">
+            Login
+          </Typography>
+          {error && <Alert severity="error" sx={{ width: '100%', mt: 2 }}>{error}</Alert>}
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <TextField
+              required
+              fullWidth
+              label="Username"
+              name="username"
+              value={credentials.username}
+              onChange={handleChange}
+              margin="normal"
+            />
+            <TextField
+              required
+              fullWidth
+              label="Password"
+              type="password"
+              name="password"
+              value={credentials.password}
+              onChange={handleChange}
+              margin="normal"
+            />
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              color="primary"
+              sx={{ mt: 3 }}
+              disabled={loading} // Disable button while loading
+            >
+              {loading ? <CircularProgress size={24} /> : 'Login'}
+            </Button>
+          </Box>
         </Box>
-      </Box>
-    </Container>
+      </Container>
+    </div>
   );
 };
+
 
 export default Login;
