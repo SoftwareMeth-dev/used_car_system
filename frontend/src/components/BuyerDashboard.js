@@ -384,66 +384,105 @@ const BuyerDashboard = () => {
     setFilteredListings(listings);
     setListingPage(0); // Reset to first page after reset
   };
+ 
+// ----------------------- View More Functionality -----------------------
+const handleViewMore = async (listing) => { 
+  try {
+    // 1. Track the view by sending a POST request to the track_view API
+    
+    await axios.post(`${config.API_BASE_URL}/track_view`, {
+      listing_id: listing._id || listing.listingID,
+    });
+  } catch (error) {
+    console.error('Error tracking view:', error);
+    setSnackbar({
+      open: true,
+      message: 'Failed to track the view.',
+      severity: 'error',
+    });
+    // Depending on your requirements, you might choose to return here to prevent further execution
+    // return;
+  }
 
-  // ----------------------- View More Functionality -----------------------
-  const handleViewMore = (listing) => {
-    try {
-      // Call the track_view API to increment the view count
-      axios.post(`${config.API_BASE_URL}/track_view`, {
-        listing_id: listing.listingID,
+  try {
+    // 2. Fetch the seller's username by sending a GET request to the get_user_id API
+    console.log(listing);
+    if (!listing.seller_id) { 
+      setSellerUsername(listing.seller_name); 
+    } else {
+      // Make the API call only if seller_id is present
+      const response = await axios.get(`${config.API_BASE_URL}/get_user_id`, {
+        params: { userid: listing.seller_id }, // Replace 'seller_id' with the correct field if different
       });
-      
-      // Set the seller's username directly from listing.seller_name
-      setSellerUsername(listing.seller_name || 'Unknown Seller');
 
-      // Set the selected listing and open the dialog
-      setSelectedListing(listing);
-      setOpenViewMore(true);
-    } catch (error) {
-      console.error('Error viewing more details:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to load listing details.',
-        severity: 'error',
-      });
+      // Check if the response contains the user data
+      if (response.status === 200 && response.data.user && response.data.user.username) {
+        setSellerUsername(response.data.user.username);
+      } else {
+        // If the response does not contain the expected data, set to 'Unknown Seller'
+        console.warn('Seller username not found in the response.');
+        setSellerUsername('Unknown Seller');
+        setSnackbar({
+          open: true,
+          message: 'Seller information could not be retrieved.',
+          severity: 'warning',
+        });
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error fetching seller username:', error);
+    setSellerUsername('Unknown Seller');
+    setSnackbar({
+      open: true,
+      message: 'Failed to fetch seller information.',
+      severity: 'error',
+    });
+  }
+
+  // 3. Set the selected listing and open the View More dialog
+  setSelectedListing(listing);
+  setOpenViewMore(true);
+};
 
   // ----------------------- Shortlist Functionality -----------------------
-
   const handleShortlist = async (listing) => {
-    try {
-      // Check if the listing is already shortlisted
-      if (shortlistedListingIDs.includes(listing.listingID)) {
-        setSnackbar({
-          open: true,
-          message: 'This listing is already in your shortlist.',
-          severity: 'info',
-        });
-        return;
-      }
-
-      // Proceed to add it
-      const addResponse = await axios.post(`${config.API_BASE_URL}/track_shortlist`, {
-        listing_id: listing.listingID,
-        user_id: userID, // Ensure user_id is sent to associate the shortlist correctly
+    try { 
+  
+      // 1. Track the shortlist event
+      const trackResponse = await axios.post(`${config.API_BASE_URL}/track_shortlist`, {
+        listing_id: listing.listingID || listing._id, // Use listingID consistently
+        user_id: username, // Use userID or username based on backend expectation
       });
-
-      if (addResponse.status === 200 && addResponse.data.success) {
-        // Update the shortlistedListingIDs state to include the new listing's listingID
-        setShortlistedListingIDs([...shortlistedListingIDs, listing.listingID]);
-        setShortlists([...shortlists, listing]);
-        setFilteredShortlists([...filteredShortlists, listing]);
-
-        setSnackbar({
-          open: true,
-          message: 'Listing shortlisted successfully.',
-          severity: 'success',
+  
+      if (trackResponse.status === 200 && trackResponse.data.success) {
+        // 2. Save the listing to the shortlist
+        const saveResponse = await axios.post(`${config.API_BASE_URL}/save_listing`, {
+          listing_id: listing.listingID || listing._id, // Use listingID consistently
+          user_id: username, // Use userID or username based on backend expectation
         });
+  
+        if (saveResponse.status === 200 && saveResponse.data.message === "Listing saved successfully.") {
+          // Update the shortlistedListingIDs state to include the new listing's listingID
+          setShortlistedListingIDs([...shortlistedListingIDs, listing.listingID]);
+          setShortlists([...shortlists, listing]);
+          setFilteredShortlists([...filteredShortlists, listing]);
+  
+          setSnackbar({
+            open: true,
+            message: 'Listing shortlisted successfully.',
+            severity: 'success',
+          });
+        } else {
+          setSnackbar({
+            open: true,
+            message: 'This listing is already in your shortlist.',
+            severity: 'info',
+          });
+        }
       } else {
         setSnackbar({
           open: true,
-          message: 'Failed to shortlist the listing.',
+          message: trackResponse.data.error || 'Failed to track the shortlist.',
           severity: 'error',
         });
       }
@@ -456,6 +495,7 @@ const BuyerDashboard = () => {
       });
     }
   };
+  
 
   // ----------------------- Loan Calculator Functions -----------------------
 
@@ -737,14 +777,14 @@ const BuyerDashboard = () => {
                           variant="contained"
                           color="secondary"
                           onClick={() => handleShortlist(listing)}
-                          disabled={shortlistedListingIDs.includes(listing.listingID)}
                           sx={{
+                            // Optional: Change the button color or keep it consistent
                             backgroundColor: shortlistedListingIDs.includes(listing.listingID)
-                              ? 'grey.500'
+                              ? 'secondary.main' // Keep the original color or choose a different one
                               : 'secondary.main',
                           }}
                         >
-                          {shortlistedListingIDs.includes(listing.listingID) ? 'Shortlisted' : 'Shortlist'}
+                          {shortlistedListingIDs.includes(listing.listingID) ? 'Shortlist' : 'Shortlist'}
                         </Button>
                         <Button
                           variant="outlined"
