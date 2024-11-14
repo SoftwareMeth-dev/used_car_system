@@ -192,7 +192,7 @@ class User:
         """
         Retrieves a user by their ObjectId.
         Returns a tuple of (response_data, status_code).
-        """
+        """ 
         try:
             oid = ObjectId(user_id)
         except InvalidId:

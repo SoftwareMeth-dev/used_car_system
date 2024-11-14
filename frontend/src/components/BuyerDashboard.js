@@ -34,7 +34,8 @@ import {
   Checkbox,
   ListItemText,
   ListItem,
-  ListItemButton, List
+  ListItemButton,
+  List,
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -104,8 +105,18 @@ const BuyerDashboard = () => {
   const [selectedListing, setSelectedListing] = useState(null);
   const [sellerUsername, setSellerUsername] = useState('');
 
+  // States for Loan Calculator
+  const [openLoanCalculator, setOpenLoanCalculator] = useState(false);
+  const [loanFormData, setLoanFormData] = useState({
+    listing_id: '',
+    annual_interest_rate: '',
+    loan_term_months: '',
+    down_payment: '',
+  });
+  const [loanDetails, setLoanDetails] = useState(null);
+
   // State to manage shortlisted listings
-  const [shortlistedListings, setShortlistedListings] = useState([]);
+  const [shortlistedListingIDs, setShortlistedListingIDs] = useState([]);
 
   // State for Shortlist Feedback
   const [isShortlisting, setIsShortlisting] = useState(false);
@@ -139,8 +150,37 @@ const BuyerDashboard = () => {
   };
 
   const buyerInfo = getBuyerInfo();
+
   const userID = buyerInfo ? buyerInfo.userID : null; // Using userID for identification
+
   const username = buyerInfo ? buyerInfo.username : null;
+
+  // Fetch shortlisted listing IDs on component mount
+  useEffect(() => {
+    const fetchShortlistedListings = async () => {
+      try {
+        const response = await axios.get(`${config.API_BASE_URL}/view_shortlist`, {
+          params: { user_id: username },
+        });
+
+        if (response.status === 200) {
+          const shortlistData = response.data.shortlist; // Array of listing objects
+          setShortlists(shortlistData);
+          setFilteredShortlists(shortlistData);
+          // Extract listingIDs for quick reference
+          const listingIDs = shortlistData.map((listing) => listing.listingID);
+          setShortlistedListingIDs(listingIDs);
+        }
+      } catch (error) {
+        console.error('Error fetching shortlisted listings:', error);
+        // Optionally handle error
+      }
+    };
+
+    if (userID) {
+      fetchShortlistedListings();
+    }
+  }, [userID]);
 
   // Redirect to login if userID is not found
   useEffect(() => {
@@ -244,27 +284,16 @@ const BuyerDashboard = () => {
     try {
       const endpoint = `${config.API_BASE_URL}/view_shortlist`;
       const response = await axios.get(endpoint, {
-        params: { user_id: userID },
+        params: { user_id: username },
       });
 
       if (response.status === 200) {
-        const shortlistedListingIDs = response.data.shortlist; // Assuming it's an array of listing IDs
-        // Fetch listing details based on IDs
-        const listingsResponse = await axios.post(`${config.API_BASE_URL}/get_listings_by_ids`, {
-          listing_ids: shortlistedListingIDs,
-        });
-
-        if (listingsResponse.status === 200) {
-          const shortlistedListingsData = listingsResponse.data.listings;
-          setShortlists(shortlistedListingsData);
-          setFilteredShortlists(shortlistedListingsData);
-        } else {
-          setSnackbar({
-            open: true,
-            message: 'Failed to fetch shortlisted listings.',
-            severity: 'error',
-          });
-        }
+        const shortlistData = response.data.shortlist; // Array of listing objects
+        setShortlists(shortlistData);
+        setFilteredShortlists(shortlistData);
+        // Extract listingIDs for quick reference
+        const listingIDs = shortlistData.map((listing) => listing.listingID);
+        setShortlistedListingIDs(listingIDs);
       } else {
         setSnackbar({
           open: true,
@@ -357,24 +386,16 @@ const BuyerDashboard = () => {
   };
 
   // ----------------------- View More Functionality -----------------------
-  const handleViewMore = async (listing) => {
+  const handleViewMore = (listing) => {
     try {
       // Call the track_view API to increment the view count
-      await axios.post(`${config.API_BASE_URL}/track_view`, {
-        listing_id: listing._id,
+      axios.post(`${config.API_BASE_URL}/track_view`, {
+        listing_id: listing.listingID,
       });
-  
-      // Fetch the seller's username using the seller_id
-      const sellerResponse = await axios.get(`${config.API_BASE_URL}/get_user_id`, {
-        params: { userid: listing.seller_id },
-      });
-  
-      if (sellerResponse.status === 200 && sellerResponse.data.user) {
-        setSellerUsername(sellerResponse.data.user.username);
-      } else {
-        setSellerUsername('Unknown Seller');
-      }
-  
+      
+      // Set the seller's username directly from listing.seller_name
+      setSellerUsername(listing.seller_name || 'Unknown Seller');
+
       // Set the selected listing and open the dialog
       setSelectedListing(listing);
       setOpenViewMore(true);
@@ -387,17 +408,33 @@ const BuyerDashboard = () => {
       });
     }
   };
-  
+
+  // ----------------------- Shortlist Functionality -----------------------
+
   const handleShortlist = async (listing) => {
     try {
-      // Call the track_shortlist API to add the listing to the user's shortlist
-      const response = await axios.post(`${config.API_BASE_URL}/track_shortlist`, {
-        listing_id: listing._id,
-        user_id: userID, // Assuming userID is stored in state or retrieved from context
+      // Check if the listing is already shortlisted
+      if (shortlistedListingIDs.includes(listing.listingID)) {
+        setSnackbar({
+          open: true,
+          message: 'This listing is already in your shortlist.',
+          severity: 'info',
+        });
+        return;
+      }
+
+      // Proceed to add it
+      const addResponse = await axios.post(`${config.API_BASE_URL}/track_shortlist`, {
+        listing_id: listing.listingID,
+        user_id: userID, // Ensure user_id is sent to associate the shortlist correctly
       });
-  
-      if (response.status === 200 && response.data.success) {
-        setShortlistedListings([...shortlistedListings, listing]);
+
+      if (addResponse.status === 200 && addResponse.data.success) {
+        // Update the shortlistedListingIDs state to include the new listing's listingID
+        setShortlistedListingIDs([...shortlistedListingIDs, listing.listingID]);
+        setShortlists([...shortlists, listing]);
+        setFilteredShortlists([...filteredShortlists, listing]);
+
         setSnackbar({
           open: true,
           message: 'Listing shortlisted successfully.',
@@ -414,12 +451,100 @@ const BuyerDashboard = () => {
       console.error('Error shortlisting listing:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to shortlist the listing.',
+        message: 'An error occurred while shortlisting the listing.',
         severity: 'error',
       });
     }
   };
-   
+
+  // ----------------------- Loan Calculator Functions -----------------------
+
+  /**
+   * Handles opening the Loan Calculator dialog and pre-filling the listing_id.
+   */
+  const handleOpenLoanCalculator = (listing) => {
+    setLoanFormData({
+      listing_id: listing.listingID,
+      annual_interest_rate: '',
+      loan_term_months: '',
+      down_payment: '',
+    });
+    setLoanDetails(null);
+    setOpenLoanCalculator(true);
+  };
+
+  /**
+   * Handles changes in the Loan Calculator form inputs.
+   */
+  const handleLoanInputChange = (e) => {
+    const { name, value } = e.target;
+    setLoanFormData({
+      ...loanFormData,
+      [name]: value,
+    });
+  };
+
+  /**
+   * Handles submitting the Loan Calculator form.
+   */
+  const handleLoanSubmit = async () => {
+    try {
+      // Validate inputs before making API call
+      const { annual_interest_rate, loan_term_months, down_payment } = loanFormData;
+
+      if (
+        !annual_interest_rate ||
+        !loan_term_months ||
+        down_payment === ''
+      ) {
+        setSnackbar({
+          open: true,
+          message: 'Please fill in all required fields.',
+          severity: 'warning',
+        });
+        return;
+      }
+
+      const response = await axios.post(`${config.API_BASE_URL}/loan_calculator`, loanFormData);
+
+      if (response.status === 200) {
+        setLoanDetails(response.data);
+        setSnackbar({
+          open: true,
+          message: 'Loan calculated successfully.',
+          severity: 'success',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: response.data.error || 'Failed to calculate loan.',
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error calculating loan:', error);
+      setSnackbar({
+        open: true,
+        message: 'An error occurred while calculating the loan.',
+        severity: 'error',
+      });
+    }
+  };
+
+  /**
+   * Handles closing the Loan Calculator dialog.
+   */
+  const handleCloseLoanCalculator = () => {
+    setOpenLoanCalculator(false);
+    setLoanFormData({
+      listing_id: '',
+      annual_interest_rate: '',
+      loan_term_months: '',
+      down_payment: '',
+    });
+    setLoanDetails(null);
+  };
+
   // ----------------------- Render Listings -----------------------
 
   const renderListings = () => {
@@ -581,6 +706,8 @@ const BuyerDashboard = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Make</TableCell>
+                  <TableCell>Model</TableCell>
+                  <TableCell>Year</TableCell>
                   <TableCell>Price</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -588,9 +715,15 @@ const BuyerDashboard = () => {
               <TableBody>
                 {paginatedListings.length > 0 ? (
                   paginatedListings.map((listing) => (
-                    <TableRow key={listing._id}>
+                    <TableRow key={listing.listingID}>
                       <TableCell>{listing.make}</TableCell>
-                      <TableCell>${listing.price.toLocaleString()}</TableCell>
+                      <TableCell>{listing.model}</TableCell>
+                      <TableCell>{listing.year}</TableCell>
+                      <TableCell>
+                        {listing.price !== undefined && listing.price !== null
+                          ? `$${listing.price.toLocaleString()}`
+                          : 'N/A'}
+                      </TableCell>
                       <TableCell align="center">
                         <Button
                           variant="outlined"
@@ -604,22 +737,29 @@ const BuyerDashboard = () => {
                           variant="contained"
                           color="secondary"
                           onClick={() => handleShortlist(listing)}
-                          disabled={shortlistedListings.some(
-                            (shortlisted) => shortlisted._id === listing._id
-                          )}
+                          disabled={shortlistedListingIDs.includes(listing.listingID)}
+                          sx={{
+                            backgroundColor: shortlistedListingIDs.includes(listing.listingID)
+                              ? 'grey.500'
+                              : 'secondary.main',
+                          }}
                         >
-                          {shortlistedListings.some(
-                            (shortlisted) => shortlisted._id === listing._id
-                          )
-                            ? 'Shortlisted'
-                            : 'Shortlist'}
+                          {shortlistedListingIDs.includes(listing.listingID) ? 'Shortlisted' : 'Shortlist'}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="success"
+                          onClick={() => handleOpenLoanCalculator(listing)}
+                          sx={{ ml: 1 }}
+                        >
+                          Loan Calculator
                         </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} align="center">
+                    <TableCell colSpan={5} align="center">
                       No listings found.
                     </TableCell>
                   </TableRow>
@@ -679,7 +819,10 @@ const BuyerDashboard = () => {
                   <strong>Year:</strong> {selectedListing.year}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Price:</strong> ${selectedListing.price.toLocaleString()}
+                  <strong>Price:</strong>{' '}
+                  {selectedListing.price !== undefined && selectedListing.price !== null
+                    ? `$${selectedListing.price.toLocaleString()}`
+                    : 'N/A'}
                 </Typography>
                 <Typography variant="body1">
                   <strong>Seller Name:</strong> {sellerUsername}
@@ -694,28 +837,174 @@ const BuyerDashboard = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Loan Calculator Dialog */}
+        <Dialog
+          open={openLoanCalculator}
+          onClose={handleCloseLoanCalculator}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>
+            Loan Calculator
+            <IconButton
+              aria-label="close"
+              onClick={handleCloseLoanCalculator}
+              sx={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                color: (theme) => theme.palette.grey[500],
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Box
+              component="form"
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+              }}
+              noValidate
+              autoComplete="off"
+            >
+              {/* Listing ID (Read-Only) */}
+              <TextField
+                label="Listing ID"
+                name="listing_id"
+                value={loanFormData.listing_id}
+                InputProps={{
+                  readOnly: true,
+                }}
+                fullWidth
+              />
+              {/* Annual Interest Rate */}
+              <TextField
+                label="Annual Interest Rate (%)"
+                name="annual_interest_rate"
+                type="number"
+                value={loanFormData.annual_interest_rate}
+                onChange={handleLoanInputChange}
+                fullWidth
+                required
+                InputProps={{ inputProps: { min: 0 } }}
+              />
+              {/* Loan Term in Months */}
+              <TextField
+                label="Loan Term (Months)"
+                name="loan_term_months"
+                type="number"
+                value={loanFormData.loan_term_months}
+                onChange={handleLoanInputChange}
+                fullWidth
+                required
+                InputProps={{ inputProps: { min: 1 } }}
+              />
+              {/* Down Payment */}
+              <TextField
+                label="Down Payment ($)"
+                name="down_payment"
+                type="number"
+                value={loanFormData.down_payment}
+                onChange={handleLoanInputChange}
+                fullWidth
+                required
+                InputProps={{ inputProps: { min: 0 } }}
+              />
+              {/* Submit Button */}
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleLoanSubmit}
+              >
+                Calculate Loan
+              </Button>
+              {/* Display Loan Details */}
+              {loanDetails && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Loan Details
+                  </Typography>
+                  {/* Only display fields that are present */}
+                  {loanDetails.monthly_payment !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Monthly Payment:</strong> $
+                      {loanDetails.monthly_payment.toFixed(2)}
+                    </Typography>
+                  )}
+                  {loanDetails.total_interest !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Total Interest:</strong> $
+                      {loanDetails.total_interest.toFixed(2)}
+                    </Typography>
+                  )}
+                  {loanDetails.total_payment !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Total Payment:</strong> $
+                      {loanDetails.total_payment.toFixed(2)}
+                    </Typography>
+                  )}
+                  {/* If there are additional fields in the response, display them conditionally */}
+                  {loanDetails.principal !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Principal:</strong> $
+                      {loanDetails.principal.toLocaleString()}
+                    </Typography>
+                  )}
+                  {loanDetails.annual_interest_rate !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Annual Interest Rate:</strong>{' '}
+                      {loanDetails.annual_interest_rate}%
+                    </Typography>
+                  )}
+                  {loanDetails.loan_term_months !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Loan Term:</strong> {loanDetails.loan_term_months}{' '}
+                      months
+                    </Typography>
+                  )}
+                  {loanDetails.down_payment !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Down Payment:</strong> $
+                      {loanDetails.down_payment.toLocaleString()}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenLoanCalculator(false)} color="primary">
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
+  }
 
-  };
-
-
+  // ----------------------- Remove Shortlist Function -----------------------
   const handleRemoveShortlist = async (listing) => {
     setIsShortlisting(true);
     try {
       // Call the remove_shortlist API
-      const response = await axios.post(`${config.API_BASE_URL}/remove_shortlist`, {
-        listing_id: listing._id,
-        user_id: userID,
-      });
-  
+      const response = await axios.delete(
+        `${config.API_BASE_URL}/remove_shortlist?user_id=${username}&listing_id=${listing.listingID}`
+      );
+
       if (response.status === 200) {
-        // Update the shortlistedListings state by removing the listing
-        setShortlistedListings((prev) =>
-          prev.filter((item) => item._id !== listing._id)
+        // Update the shortlistedListingIDs state by removing the listing's listingID
+        setShortlistedListingIDs((prev) =>
+          prev.filter((id) => id !== listing.listingID)
+        );
+        setShortlists((prev) =>
+          prev.filter((item) => item.listingID !== listing.listingID)
         );
         setFilteredShortlists((prev) =>
-          prev.filter((item) => item._id !== listing._id)
+          prev.filter((item) => item.listingID !== listing.listingID)
         );
         setSnackbar({
           open: true,
@@ -741,147 +1030,314 @@ const BuyerDashboard = () => {
     }
   };
 
-const renderShortlists = () => {
-  // Calculate the slice of shortlists to display based on pagination
-  const start = shortlistPage * shortlistRowsPerPage;
-  const end = start + shortlistRowsPerPage;
-  const paginatedShortlists = filteredShortlists.slice(start, end);
+  // ----------------------- Render Shortlists -----------------------
 
-  return (
-    <Box sx={{ m: 1 }}>
-      {/* Header */}
-      <Typography variant="h6" gutterBottom>
-        Your Shortlisted Listings
-      </Typography>
+  const renderShortlists = () => {
+    // Calculate the slice of shortlists to display based on pagination
+    const start = shortlistPage * shortlistRowsPerPage;
+    const end = start + shortlistRowsPerPage;
+    const paginatedShortlists = filteredShortlists.slice(start, end);
 
-      {/* Shortlists Table */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Make</TableCell>
-                <TableCell>Price</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedShortlists.length > 0 ? (
-                paginatedShortlists.map((listing) => (
-                  <TableRow key={listing._id}>
-                    <TableCell>{listing.make}</TableCell>
-                    <TableCell>${listing.price.toLocaleString()}</TableCell>
-                    <TableCell align="center">
-                      {/* View More Button */}
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={() => handleViewMore(listing)}
-                        sx={{ mr: 1 }}
-                      >
-                        View More
-                      </Button>
-                      {/* Remove from Shortlist Button */}
-                      <Button
-                        variant="contained"
-                        color="error"
-                        onClick={() => handleRemoveShortlist(listing)}
-                        disabled={isShortlisting}
-                      >
-                        {isShortlisting ? (
-                          <CircularProgress size={24} color="inherit" />
-                        ) : (
-                          'Remove'
-                        )}
-                      </Button>
+    return (
+      <Box sx={{ m: 1 }}>
+        {/* Header */}
+        <Typography variant="h6" gutterBottom>
+          Your Shortlisted Listings
+        </Typography>
+
+        {/* Shortlists Table */}
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Make</TableCell>
+                  <TableCell>Model</TableCell>
+                  <TableCell>Year</TableCell>
+                  <TableCell>Price</TableCell>
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedShortlists.length > 0 ? (
+                  paginatedShortlists.map((listing) => (
+                    <TableRow key={listing.listingID}>
+                      <TableCell>{listing.make}</TableCell>
+                      <TableCell>{listing.model}</TableCell>
+                      <TableCell>{listing.year}</TableCell>
+                      <TableCell>
+                        {listing.price !== undefined && listing.price !== null
+                          ? `$${listing.price.toLocaleString()}`
+                          : 'N/A'}
+                      </TableCell>
+                      <TableCell align="center">
+                        {/* View More Button */}
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          onClick={() => handleViewMore(listing)}
+                          sx={{ mr: 1 }}
+                        >
+                          View More
+                        </Button>
+                        {/* Remove from Shortlist Button */}
+                        <Button
+                          variant="contained"
+                          color="error"
+                          onClick={() => handleRemoveShortlist(listing)}
+                          disabled={isShortlisting}
+                        >
+                          {isShortlisting ? (
+                            <CircularProgress size={24} color="inherit" />
+                          ) : (
+                            'Remove'
+                          )}
+                        </Button>
+                        {/* Loan Calculator Button */}
+                        <Button
+                          variant="outlined"
+                          color="success"
+                          onClick={() => handleOpenLoanCalculator(listing)}
+                          sx={{ ml: 1 }}
+                        >
+                          Loan Calculator
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      No shortlisted listings found.
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} align="center">
-                    No shortlisted listings found.
-                  </TableCell>
-                </TableRow>
+                )}
+              </TableBody>
+            </Table>
+
+            {/* Pagination Controls */}
+            <TablePagination
+              component="div"
+              count={filteredShortlists.length}
+              page={shortlistPage}
+              onPageChange={(event, newPage) => setShortlistPage(newPage)}
+              rowsPerPage={shortlistRowsPerPage}
+              onRowsPerPageChange={(event) => {
+                setShortlistRowsPerPage(parseInt(event.target.value, 10));
+                setShortlistPage(0); // Reset to first page
+              }}
+              rowsPerPageOptions={[5, 10, 25]}
+              labelRowsPerPage="Shortlists per page:"
+              sx={{ mt: 2 }}
+            />
+          </>
+        )}
+
+        {/* View More Dialog */}
+        <Dialog
+          open={openViewMore}
+          onClose={() => setOpenViewMore(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>
+            Listing Details
+            <IconButton
+              aria-label="close"
+              onClick={() => setOpenViewMore(false)}
+              sx={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                color: (theme) => theme.palette.grey[500],
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            {selectedListing && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Typography variant="body1">
+                  <strong>Make:</strong> {selectedListing.make}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Model:</strong> {selectedListing.model}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Year:</strong> {selectedListing.year}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Price:</strong>{' '}
+                  {selectedListing.price !== undefined && selectedListing.price !== null
+                    ? `$${selectedListing.price.toLocaleString()}`
+                    : 'N/A'}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Seller Name:</strong> {selectedListing.seller_name || 'Unknown Seller'}
+                </Typography>
+                {/* Add more details as needed */}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenViewMore(false)} color="primary">
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Loan Calculator Dialog */}
+        <Dialog
+          open={openLoanCalculator}
+          onClose={handleCloseLoanCalculator}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>
+            Loan Calculator
+            <IconButton
+              aria-label="close"
+              onClick={handleCloseLoanCalculator}
+              sx={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                color: (theme) => theme.palette.grey[500],
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Box
+              component="form"
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+              }}
+              noValidate
+              autoComplete="off"
+            >
+              {/* Listing ID (Read-Only) */}
+              <TextField
+                label="Listing ID"
+                name="listing_id"
+                value={loanFormData.listing_id}
+                InputProps={{
+                  readOnly: true,
+                }}
+                fullWidth
+              />
+              {/* Annual Interest Rate */}
+              <TextField
+                label="Annual Interest Rate (%)"
+                name="annual_interest_rate"
+                type="number"
+                value={loanFormData.annual_interest_rate}
+                onChange={handleLoanInputChange}
+                fullWidth
+                required
+                InputProps={{ inputProps: { min: 0 } }}
+              />
+              {/* Loan Term in Months */}
+              <TextField
+                label="Loan Term (Months)"
+                name="loan_term_months"
+                type="number"
+                value={loanFormData.loan_term_months}
+                onChange={handleLoanInputChange}
+                fullWidth
+                required
+                InputProps={{ inputProps: { min: 1 } }}
+              />
+              {/* Down Payment */}
+              <TextField
+                label="Down Payment ($)"
+                name="down_payment"
+                type="number"
+                value={loanFormData.down_payment}
+                onChange={handleLoanInputChange}
+                fullWidth
+                required
+                InputProps={{ inputProps: { min: 0 } }}
+              />
+              {/* Submit Button */}
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleLoanSubmit}
+              >
+                Calculate Loan
+              </Button>
+              {/* Display Loan Details */}
+              {loanDetails && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Loan Details
+                  </Typography>
+                  {/* Only display fields that are present */}
+                  {loanDetails.monthly_payment !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Monthly Payment:</strong> $
+                      {loanDetails.monthly_payment.toFixed(2)}
+                    </Typography>
+                  )}
+                  {loanDetails.total_interest !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Total Interest:</strong> $
+                      {loanDetails.total_interest.toFixed(2)}
+                    </Typography>
+                  )}
+                  {loanDetails.total_payment !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Total Payment:</strong> $
+                      {loanDetails.total_payment.toFixed(2)}
+                    </Typography>
+                  )}
+                  {/* If there are additional fields in the response, display them conditionally */}
+                  {loanDetails.principal !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Principal:</strong> $
+                      {loanDetails.principal.toLocaleString()}
+                    </Typography>
+                  )}
+                  {loanDetails.annual_interest_rate !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Annual Interest Rate:</strong>{' '}
+                      {loanDetails.annual_interest_rate}%
+                    </Typography>
+                  )}
+                  {loanDetails.loan_term_months !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Loan Term:</strong> {loanDetails.loan_term_months} months
+                    </Typography>
+                  )}
+                  {loanDetails.down_payment !== undefined && (
+                    <Typography variant="body1">
+                      <strong>Down Payment:</strong> $
+                      {loanDetails.down_payment.toLocaleString()}
+                    </Typography>
+                  )}
+                </Box>
               )}
-            </TableBody>
-          </Table>
-
-          {/* Pagination Controls */}
-          <TablePagination
-            component="div"
-            count={filteredShortlists.length}
-            page={shortlistPage}
-            onPageChange={(event, newPage) => setShortlistPage(newPage)}
-            rowsPerPage={shortlistRowsPerPage}
-            onRowsPerPageChange={(event) => {
-              setShortlistRowsPerPage(parseInt(event.target.value, 10));
-              setShortlistPage(0); // Reset to first page
-            }}
-            rowsPerPageOptions={[5, 10, 25]}
-            labelRowsPerPage="Shortlists per page:"
-            sx={{ mt: 2 }}
-          />
-        </>
-      )}
-
-      {/* View More Dialog */}
-      <Dialog
-        open={openViewMore}
-        onClose={() => setOpenViewMore(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>
-          Listing Details
-          <IconButton
-            aria-label="close"
-            onClick={() => setOpenViewMore(false)}
-            sx={{
-              position: 'absolute',
-              right: 8,
-              top: 8,
-              color: (theme) => theme.palette.grey[500],
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers>
-          {selectedListing && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Typography variant="body1">
-                <strong>Make:</strong> {selectedListing.make}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Model:</strong> {selectedListing.model}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Year:</strong> {selectedListing.year}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Price:</strong> ${selectedListing.price.toLocaleString()}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Seller Name:</strong> {sellerUsername}
-              </Typography>
-              {/* Add more details as needed */}
             </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenViewMore(false)} color="primary">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-};
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenLoanCalculator(false)} color="primary">
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  }
+
   // ----------------------- Logout Function -----------------------
 
   /**
