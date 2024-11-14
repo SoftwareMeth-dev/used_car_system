@@ -98,11 +98,27 @@ const BuyerDashboard = () => {
   const [listingPage, setListingPage] = useState(0);
   const [listingRowsPerPage, setListingRowsPerPage] = useState(5);
 
+  // Dynamic Filters for shortlists
+  const [slAvailableMakes, setSlAvailableMakes] = useState([]);
+  const [slSelectedMakes, setSlSelectedMakes] = useState(['All']);
+
+  const [slAvailableModels, setSlAvailableModels] = useState([]);
+  const [slSelectedModels, setSlSelectedModels] = useState(['All']);
+
+  const [slYearRange, setSlYearRange] = useState({ min: 0, max: 0 });
+  const [slSelectedMinYear, setSlSelectedMinYear] = useState(0);
+  const [slSelectedMaxYear, setSlSelectedMaxYear] = useState(0);
+
+  const [slPriceRange, setSlPriceRange] = useState({ min: 0, max: 0 });
+  const [slSelectedMinPrice, setSlSelectedMinPrice] = useState(0);
+  const [slSelectedMaxPrice, setSlSelectedMaxPrice] = useState(0);
+
   // States for Shortlists
   const [shortlists, setShortlists] = useState([]);
   const [filteredShortlists, setFilteredShortlists] = useState([]);
   const [shortlistPage, setShortlistPage] = useState(0);
   const [shortlistRowsPerPage, setShortlistRowsPerPage] = useState(5);
+  const [shortlistSearchQuery, setShortlistSearchQuery] = useState('');
 
   // States for View More Dialog
   const [openViewMore, setOpenViewMore] = useState(false);
@@ -367,9 +383,34 @@ const BuyerDashboard = () => {
         const shortlistData = response.data.shortlist; // Array of listing objects
         setShortlists(shortlistData);
         setFilteredShortlists(shortlistData);
+
         // Extract listingIDs for quick reference
         const listingIDs = shortlistData.map((listing) => listing.listingID);
         setShortlistedListingIDs(listingIDs);
+        // Extract unique Makes and Models
+        const makes = [...new Set(shortlistData.map((listing) => listing.make))];
+        setSlAvailableMakes(makes);
+        setSlSelectedMakes(['All']);
+
+        const models = [...new Set(shortlistData.map((listing) => listing.model))];
+        setSlAvailableModels(models);
+        setSlSelectedModels(['All']);
+
+        // Determine Year Range
+        const years = shortlistData.map((listing) => listing.year);
+        const minYear = years.length > 0 ? Math.min(...years) : 0;
+        const maxYear = years.length > 0 ? Math.max(...years) : 0;
+        setSlYearRange({ min: minYear, max: maxYear });
+        setSlSelectedMinYear(minYear);
+        setSlSelectedMaxYear(maxYear);
+
+        // Determine Price Range
+        const prices = shortlistData.map((listing) => listing.price);
+        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+        const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+        setSlPriceRange({ min: minPrice, max: maxPrice });
+        setSlSelectedMinPrice(minPrice);
+        setSlSelectedMaxPrice(maxPrice);
       } else {
         setSnackbar({
           open: true,
@@ -461,6 +502,64 @@ const BuyerDashboard = () => {
     setSelectedMaxPrice(priceRange.max);
     setFilteredListings(listings);
     setListingPage(0); // Reset to first page after reset
+  };
+
+  /**
+   * User Story: As a buyer, I want to search my shortlists so that I can compare.
+   * Trigger: The buyer enters a search query and submits.
+   */
+
+  const handleSearchShortlists = () => {
+    let filtered = [...shortlists];
+
+    // Filter by Selected Makes
+    if (slSelectedMakes.length > 0 && !slSelectedMakes.includes('All')) {
+      filtered = filtered.filter((listing) =>
+        slSelectedMakes.includes(listing.make)
+      );
+    }
+
+    // Filter by Selected Models
+    if (slSelectedModels.length > 0 && !slSelectedModels.includes('All')) {
+      filtered = filtered.filter((listing) =>
+        slSelectedModels.includes(listing.model)
+      );
+    }
+
+    // Filter by Year Range
+    if (slSelectedMinYear !== slYearRange.min || slSelectedMaxYear !== slYearRange.max) {
+      filtered = filtered.filter(
+        (listing) =>
+          listing.year >= slSelectedMinYear && listing.year <= slSelectedMaxYear
+      );
+    }
+
+    // Filter by Price Range
+    if (slSelectedMinPrice !== priceRange.min || slSelectedMaxPrice !== slPriceRange.max) {
+      filtered = filtered.filter(
+        (listing) =>
+          listing.price >= slSelectedMinPrice && listing.price <= slSelectedMaxPrice
+      );
+    }
+
+    setFilteredShortlists(filtered);
+    setShortlistPage(0); // Reset to first page after search
+  };
+
+  /**
+   * User Story: As a buyer, I want to reset the search to view all my shortlists.
+   * Trigger: The buyer clicks the reset search button.
+   */
+  const handleResetSearchShortlist = () => {
+    setShortlistSearchQuery('');
+    setSlSelectedMakes(['All']);
+    setSlSelectedModels(['All']);
+    setSlSelectedMinYear(yearRange.min);
+    setSlSelectedMaxYear(yearRange.max);
+    setSlSelectedMinPrice(priceRange.min);
+    setSlSelectedMaxPrice(priceRange.max);
+    setFilteredShortlists(shortlists);
+    setShortlistPage(0); // Reset to first page after reset
   };
  
 // ----------------------- View More Functionality -----------------------
@@ -1375,10 +1474,11 @@ const handleViewMore = async (listing) => {
               </Typography>
               <Typography variant="body1" gutterBottom>
                   Price:{' '}
-                  {selectedListing.price !== undefined && selectedListing.price !== null
+                  {selectedListing && selectedListing.price !== undefined && selectedListing.price !== null
                     ? `$${selectedListing.price.toLocaleString()}`
                     : 'N/A'}
                 </Typography>
+
             <Box
               component="form"
               sx={{
@@ -1638,10 +1738,149 @@ const handleViewMore = async (listing) => {
 
     return (
       <Box sx={{ m: 1 }}>
-        {/* Header */}
-        <Typography variant="h6" gutterBottom>
-          My Shortlisted Listings
-        </Typography>
+        {/* Search and Filters Section */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Search My Shortlists
+          </Typography>
+          <Grid container spacing={3}>
+            {/* Make Filter */}
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel id="make-filter-label">Make</InputLabel>
+                <Select
+                  labelId="make-filter-label"
+                  multiple
+                  value={slSelectedMakes}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.includes('All')) {
+                      setSlSelectedMakes(['All']);
+                    } else {
+                      setSlSelectedMakes(value);
+                    }
+                  }}
+                  label="Make"
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {/* 'All' Option */}
+                  <MenuItem value="All">
+                    <Checkbox checked={slSelectedMakes.includes('All')} />
+                    <ListItemText primary="All" />
+                  </MenuItem>
+                  {slAvailableMakes.map((make) => (
+                    <MenuItem key={make} value={make}>
+                      <Checkbox checked={slSelectedMakes.includes(make)} />
+                      <ListItemText primary={make} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Model Filter */}
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel id="model-filter-label">Model</InputLabel>
+                <Select
+                  labelId="model-filter-label"
+                  multiple
+                  value={slSelectedModels}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.includes('All')) {
+                      setSlSelectedModels(['All']);
+                    } else {
+                      setSlSelectedModels(value);
+                    }
+                  }}
+                  label="Model"
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {/* 'All' Option */}
+                  <MenuItem value="All">
+                    <Checkbox checked={slSelectedModels.includes('All')} />
+                    <ListItemText primary="All" />
+                  </MenuItem>
+                  {slAvailableModels.map((model) => (
+                    <MenuItem key={model} value={model}>
+                      <Checkbox checked={slSelectedModels.includes(model)} />
+                      <ListItemText primary={model} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Spacer Grid Item to Create Vertical Space */}
+            <Grid item xs={12} />
+
+            {/* Year Range Filter */}
+            <Grid item xs={12} md={3}>
+              <Typography gutterBottom>Year Range</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Min Year"
+                  type="number"
+                  value={slSelectedMinYear}
+                  onChange={(e) => setSlSelectedMinYear(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: slYearRange.min, max: slYearRange.max } }}
+                />
+                <TextField
+                  label="Max Year"
+                  type="number"
+                  value={slSelectedMaxYear}
+                  onChange={(e) => setSlSelectedMaxYear(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: slYearRange.min, max: slYearRange.max } }}
+                />
+              </Box>
+            </Grid>
+
+            {/* Price Range Filter */}
+            <Grid item xs={12} md={3}>
+              <Typography gutterBottom>Price Range ($)</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Min Price"
+                  type="number"
+                  value={slSelectedMinPrice}
+                  onChange={(e) => setSlSelectedMinPrice(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: slPriceRange.min, max: slPriceRange.max } }}
+                />
+                <TextField
+                  label="Max Price"
+                  type="number"
+                  value={slSelectedMaxPrice}
+                  onChange={(e) => setSlSelectedMaxPrice(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: slPriceRange.min, max: slPriceRange.max } }}
+                />
+              </Box>
+            </Grid>
+          </Grid>
+          {/* Filter Actions */}
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<SearchIcon />}
+              onClick={handleSearchShortlists}
+            >
+              Search
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleResetSearchShortlist}
+            >
+              Reset
+            </Button>
+          </Box>
+        </Box>
+
 
         {/* Shortlists Table */}
         {loading ? (
@@ -1829,7 +2068,7 @@ const handleViewMore = async (listing) => {
               </Typography>
               <Typography variant="body1" gutterBottom>
                   Price:{' '}
-                  {selectedListing.price !== undefined && selectedListing.price !== null
+                  {selectedListing && selectedListing.price !== undefined && selectedListing.price !== null
                     ? `$${selectedListing.price.toLocaleString()}`
                     : 'N/A'}
                 </Typography>
