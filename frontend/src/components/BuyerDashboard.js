@@ -554,10 +554,10 @@ const BuyerDashboard = () => {
     setShortlistSearchQuery('');
     setSlSelectedMakes(['All']);
     setSlSelectedModels(['All']);
-    setSlSelectedMinYear(yearRange.min);
-    setSlSelectedMaxYear(yearRange.max);
-    setSlSelectedMinPrice(priceRange.min);
-    setSlSelectedMaxPrice(priceRange.max);
+    setSlSelectedMinYear(slYearRange.min);
+    setSlSelectedMaxYear(slYearRange.max);
+    setSlSelectedMinPrice(slPriceRange.min);
+    setSlSelectedMaxPrice(slPriceRange.max);
     setFilteredShortlists(shortlists);
     setShortlistPage(0); // Reset to first page after reset
   };
