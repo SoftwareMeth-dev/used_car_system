@@ -10,7 +10,7 @@ class ViewReviewsController:
         self.register_routes()
 
     def register_routes(self):
-        # Route for agents to view their reviews
+        
         view_reviews_bp.add_url_rule(
             '/view_reviews/<agent_id>',
             view_func=self.view_reviews,
@@ -24,6 +24,5 @@ class ViewReviewsController:
         """
         response, status_code = Review.get_reviews_and_average(agent_id)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 view_reviews_controller = ViewReviewsController()

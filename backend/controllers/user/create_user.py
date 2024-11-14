@@ -20,6 +20,5 @@ class CreateUserController:
         data = request.get_json()
         response, status_code = User.create_user(data)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 create_user_controller = CreateUserController()

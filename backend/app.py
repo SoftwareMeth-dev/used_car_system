@@ -42,6 +42,7 @@ from controllers.user.reenable_user import reenable_user_bp
 from controllers.user.search_users import search_users_bp
 
 
+from controllers.buyer_listing.remove_shortlist import remove_shortlist_bp
 
 
 
@@ -94,6 +95,8 @@ app.register_blueprint(loan_calculator_bp)
 app.register_blueprint(view_listings_bp)
 app.register_blueprint(user_reviews_bp)
 app.register_blueprint(edit_review_agent_bp)
+
+app.register_blueprint(remove_shortlist_bp)
 
 
 # Define centralized error handlers

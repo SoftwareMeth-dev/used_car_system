@@ -19,6 +19,5 @@ class DeleteListingController:
         """
         response, status_code = UsedCarListing.delete_listing(listing_id)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 delete_listing_controller = DeleteListingController()

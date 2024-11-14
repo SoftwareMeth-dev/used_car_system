@@ -19,6 +19,5 @@ class SuspendUserController:
         """
         response, status_code = User.suspend_user(username)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 suspend_user_controller = SuspendUserController()

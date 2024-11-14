@@ -20,6 +20,5 @@ class TrackShortlistController:
         data = request.get_json()
         response, status_code = UsedCarListing.track_shortlist(data)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 track_shortlist_controller = TrackShortlistController()

@@ -20,6 +20,5 @@ class CreateProfileController:
         data = request.get_json() 
         response, status_code = Profile.create_profile(data) 
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 create_profile_controller = CreateProfileController()

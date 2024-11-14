@@ -2,8 +2,7 @@
 
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing
-
-# Rename Blueprint from 'seller' to 'user' to reflect generic usage
+ 
 user_reviews_bp = Blueprint('user', __name__, url_prefix='/api')
 
 @user_reviews_bp.route('/get_listings_with_reviews/<user_id>', methods=['GET'])
@@ -17,7 +16,6 @@ def get_listings_with_reviews(user_id):
         
     Returns:
         JSON response containing the listings with appended review_id.
-    """
-    # Call the updated model method
+    """ 
     response, status_code = UsedCarListing.get_listings_with_reviews(user_id)
     return jsonify(response), status_code

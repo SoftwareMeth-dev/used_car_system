@@ -20,6 +20,5 @@ class TrackViewController:
         data = request.get_json()
         response, status_code = UsedCarListing.track_view(data)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 track_view_controller = TrackViewController()

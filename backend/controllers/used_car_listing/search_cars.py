@@ -16,6 +16,5 @@ class SearchCarsController:
         query = request.args.get('query')
         response, status_code = UsedCarListing.search_cars(query)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 search_cars_controller = SearchCarsController()

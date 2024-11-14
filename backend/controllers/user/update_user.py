@@ -20,6 +20,5 @@ class UpdateUserController:
         data = request.get_json()
         response, status_code = User.update_user(username, data)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 update_user_controller = UpdateUserController()

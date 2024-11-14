@@ -24,6 +24,5 @@ class SearchUsersController:
 
         response, status_code = User.filter_users(username=username, email=email, role=role, status=status)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 search_users_controller = SearchUsersController()

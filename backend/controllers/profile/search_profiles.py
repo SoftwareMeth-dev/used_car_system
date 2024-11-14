@@ -20,6 +20,5 @@ class SearchProfilesController:
         query = request.args.get('query')
         response, status_code = Profile.search_profiles(query)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 search_profiles_controller = SearchProfilesController()

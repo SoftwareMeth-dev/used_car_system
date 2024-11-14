@@ -20,10 +20,8 @@ class ViewUsersController:
         username = request.args.get('username')
         email = request.args.get('email')
         role = request.args.get('role')
-        status = request.args.get('status')  # Expected values: 'active' or 'suspended'
-
+        status = request.args.get('status')   
         response, status_code = User.filter_users(username=username, email=email, role=role, status=status)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 view_users_controller = ViewUsersController()
