@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.used_car_listing import UsedCarListing  # Updated import
 
-track_shortlist_bp = Blueprint('track_shortlist', __name__, url_prefix='/api/seller')
+track_shortlist_bp = Blueprint('track_shortlist', __name__, url_prefix='/api')
 
 class TrackShortlistController:
     def __init__(self):
