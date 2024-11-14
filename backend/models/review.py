@@ -73,9 +73,9 @@ class Review:
             if not agent_id:
                 return {"error": "Agent associated with the listing not found."}, 404
 
-            # Prevent users from reviewing themselves if agent_id and user_id are the same
-            if agent_id == user_oid:
-                return {"error": "You cannot review yourself."}, 403
+            # # Prevent users from reviewing themselves if agent_id and user_id are the same
+            # if agent_id == user_oid:
+            #     return {"error": "You cannot review yourself."}, 403
                 
             # Check if the combination of agent_id, listing_id, and reviewer_id already exists
             existing_review = reviews_collection.find_one({
@@ -172,70 +172,62 @@ class Review:
         except Exception as e:
             logger.exception(f"Error calculating average rating for agent {agent_id}: {e}")
             return None
-
     @staticmethod
-    def edit_review_agent(role, review_id, data):
+    def edit_review_agent(review_id, data):
         """
-        Handles the logic for editing an existing review.
+        Edits an existing review.
         Validates input, ensures the requester is the original reviewer, and updates the review.
         Returns a tuple of (response_dict, status_code).
         """
         try:
-            if role not in ['buyer', 'seller']:
-                return {"error": "Invalid role specified."}, 400
-
-            if not data:
-                return {"error": "No input data provided."}, 400
-
-            # Define required fields
-            required_fields = ["rating"]
-            missing_fields = [field for field in required_fields if field not in data]
-            if missing_fields:
-                return {"error": f"Missing required fields: {', '.join(missing_fields)}."}, 400
-
-            # Validate rating
-            rating = data.get('rating')
-            if not isinstance(rating, (int, float)) or not (1 <= rating <= 5):
-                return {"error": "Rating must be a number between 1 and 5."}, 400
-
-            # Optional field: review
-            review_text = data.get('review', '')
-
-            # Fetch the existing review
+            # Validate and convert review_id to ObjectId
             try:
-                existing_review = reviews_collection.find_one({"_id": ObjectId(review_id)})
-            except (InvalidId, TypeError):
+                review_obj_id = ObjectId(review_id)
+            except InvalidId:
                 return {"error": "Invalid review_id format."}, 400
 
+            # Fetch the existing review
+            existing_review = reviews_collection.find_one({"_id": review_obj_id})
             if not existing_review:
                 return {"error": "Review not found."}, 404
 
-            # Ensure the reviewer_role matches
-            if existing_review.get('reviewer_role') != role:
-                return {"error": "Role mismatch. Cannot edit this review."}, 403
+            # Extract data from request
+            reviewer_id = data.get("reviewer_id")
+            reviewer_role = data.get("reviewer_role")
+            rating = data.get("rating")
+            review_text = data.get("review", "")  # Optional field
 
-            # Assuming that the requester is sending their reviewer_id for authorization
-            reviewer_id = data.get('reviewer_id')
+            # Basic validation (more can be added as needed)
             if not reviewer_id:
-                return {"error": "Missing 'reviewer_id' in request data for authorization."}, 400
+                return {"error": "Missing 'reviewer_id'."}, 400
+            if not reviewer_role:
+                return {"error": "Missing 'reviewer_role'."}, 400
+            if rating is None:
+                return {"error": "Missing 'rating'."}, 400
 
+            # Convert reviewer_id to ObjectId
             try:
-                reviewer_oid = ObjectId(reviewer_id)
-            except (InvalidId, TypeError):
+                reviewer_obj_id = ObjectId(reviewer_id)
+            except InvalidId:
                 return {"error": "Invalid reviewer_id format."}, 400
 
-            if existing_review.get('reviewer_id') != reviewer_oid:
+            # Ensure the requester is the original reviewer
+            if existing_review.get('reviewer_id') != reviewer_id:
                 return {"error": "Unauthorized. You can only edit your own reviews."}, 403
 
-            # Proceed to update the review
+            # Validate rating
+            if not isinstance(rating, (int, float)) or not (1 <= rating <= 5):
+                return {"error": "Rating must be a number between 1 and 5."}, 400
+
+            # Prepare the update fields
             update_fields = {
                 "rating": rating,
-                "review": review_text,
-                "updated_at": datetime.utcnow()
+                "review": review_text, 
             }
 
+            # Update the review in the database
             result = reviews_collection.update_one(
-                {"_id": ObjectId(review_id)},
+                {"_id": review_obj_id},
                 {"$set": update_fields}
             )
 
@@ -245,5 +237,6 @@ class Review:
                 return {"success": False, "message": "No changes made to the review."}, 200
 
         except Exception as e:
-            logger.exception(f"Error in Review.edit_review_agent: {e}")
+            logging.exception(f"Error in Review.edit_review_agent: {e}")
             return {"error": "An error occurred while editing the review."}, 500
+

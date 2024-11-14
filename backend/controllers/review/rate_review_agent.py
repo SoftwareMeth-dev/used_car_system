@@ -16,13 +16,10 @@ class RateReviewAgentController:
             view_func=self.rate_review_agent,
             methods=['POST']
         )
-
-    def rate_review_agent(self, role, user_id, listing_id):
-        """
-        Endpoint to rate and review agents based on the role, user_id, and listing_id specified in the URL.
-        Delegates all processing to the ReviewModel.
-        """
+    def rate_review_agent(self, user_id, listing_id):
         data = request.get_json()
+        role = data.get('reviewer_role')  # Extract 'role' from JSON payload 
+
         response, status_code = Review.rate_and_review_agent(role, user_id, listing_id, data)
         return jsonify(response), status_code
 
