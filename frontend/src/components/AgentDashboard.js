@@ -238,7 +238,7 @@ const AgentDashboard = () => {
     setLoading(true);
     try {
       // Adjust the params based on your backend implementation
-      const response = await axios.get(`${config.API_BASE_URL}/user_admin/view_users`, {
+      const response = await axios.get(`${config.API_BASE_URL}/view_users`, {
         params: { role: 'seller' }, // Assuming the backend can filter by role
       });
 
