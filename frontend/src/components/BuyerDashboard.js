@@ -46,6 +46,9 @@ import RateReviewIcon from '@mui/icons-material/RateReview';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import EditReviewIcon from '@mui/icons-material/Edit';  
+import CalculateIcon from '@mui/icons-material/Calculate';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import ReadMoreIcon from '@mui/icons-material/ReadMore';
 
 const drawerWidth = 240;
 
@@ -105,6 +108,7 @@ const BuyerDashboard = () => {
   const [openViewMore, setOpenViewMore] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [sellerUsername, setSellerUsername] = useState('');
+  const [agentUsername, setAgentUsername] = useState('');
 
   // States for Loan Calculator
   const [openLoanCalculator, setOpenLoanCalculator] = useState(false);
@@ -139,7 +143,41 @@ const BuyerDashboard = () => {
   const [reviewErrors, setReviewErrors] = useState({});
 
   // Handler to Open Submit Review Dialog
-  const handleOpenSubmitReviewDialog = (listing) => {
+  const handleOpenSubmitReviewDialog = async (listing) => {
+    try {
+      // 1. Fetch the agents's username by sending a GET request to the get_user_id API
+      if (!listing.agent_id) { 
+        setAgentUsername(listing.agent_name); 
+      } else {
+        // Make the API call only if seller_id is present
+        const response = await axios.get(`${config.API_BASE_URL}/get_user_id`, {
+          params: { userid: listing.agent_id }, // Replace 'seller_id' with the correct field if different
+        });
+  
+        // Check if the response contains the user data
+        if (response.status === 200 && response.data.user && response.data.user.username) {
+          setAgentUsername(response.data.user.username);
+        } else {
+          // If the response does not contain the expected data, set to 'Unknown Agent'
+          console.warn('Agent username not found in the response.');
+          setAgentUsername('Unknown Agent');
+          setSnackbar({
+            open: true,
+            message: 'Agent information could not be retrieved.',
+            severity: 'warning',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching agent username:', error);
+      setAgentUsername('Unknown Agent');
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch agent information.',
+        severity: 'error',
+      });
+    }
+
     setSelectedReviewListing(listing);
     setReviewFormData({
       rating: '',
@@ -446,7 +484,6 @@ const handleViewMore = async (listing) => {
 
   try {
     // 2. Fetch the seller's username by sending a GET request to the get_user_id API
-    console.log(listing);
     if (!listing.seller_id) { 
       setSellerUsername(listing.seller_name); 
     } else {
@@ -475,6 +512,40 @@ const handleViewMore = async (listing) => {
     setSnackbar({
       open: true,
       message: 'Failed to fetch seller information.',
+      severity: 'error',
+    });
+  }
+
+  try {
+    // 3. Fetch the agents's username by sending a GET request to the get_user_id API
+    if (!listing.agent_id) { 
+      setAgentUsername(listing.agent_name); 
+    } else {
+      // Make the API call only if seller_id is present
+      const response = await axios.get(`${config.API_BASE_URL}/get_user_id`, {
+        params: { userid: listing.agent_id }, // Replace 'seller_id' with the correct field if different
+      });
+
+      // Check if the response contains the user data
+      if (response.status === 200 && response.data.user && response.data.user.username) {
+        setAgentUsername(response.data.user.username);
+      } else {
+        // If the response does not contain the expected data, set to 'Unknown Agent'
+        console.warn('Agent username not found in the response.');
+        setAgentUsername('Unknown Agent');
+        setSnackbar({
+          open: true,
+          message: 'Agent information could not be retrieved.',
+          severity: 'warning',
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching agent username:', error);
+    setAgentUsername('Unknown Agent');
+    setSnackbar({
+      open: true,
+      message: 'Failed to fetch agent information.',
       severity: 'error',
     });
   }
@@ -549,6 +620,7 @@ const handleViewMore = async (listing) => {
       loan_term_months: '',
       down_payment: '',
     });
+    setSelectedListing(listing);
     setLoanDetails(null);
     setOpenLoanCalculator(true);
   };
@@ -696,7 +768,8 @@ const handleViewMore = async (listing) => {
         rating: Number(reviewFormData.rating),
         review: reviewFormData.review,
       };
-      const endpoint = `${config.API_BASE_URL}/rate_review_agent/${userID}/${selectedReviewListing.listing_id}`;
+      const tempListingID = selectedReviewListing._id || selectedReviewListing.listingID;
+      const endpoint = `${config.API_BASE_URL}/rate_review_agent/${userID}/${tempListingID}`;
       const response = await axios.post(endpoint, payload);
       if (response.status === 201 || response.status === 200) {
         setSnackbar({
@@ -842,7 +915,6 @@ const handleViewMore = async (listing) => {
                         {listing.review_id ? 'Reviewed' : 'Not Reviewed'}
                       </TableCell>
                       <TableCell>
-                        {listing.review_id ? (
                           <Button
                             variant="outlined"
                             color="primary"
@@ -851,16 +923,6 @@ const handleViewMore = async (listing) => {
                           >
                             Edit Review
                           </Button>
-                        ) : (
-                          <Button
-                            variant="contained"
-                            color="secondary"
-                            startIcon={<RateReviewIcon />}
-                            onClick={() => handleOpenSubmitReviewDialog(listing)}
-                          >
-                            Review
-                          </Button>
-                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -890,86 +952,6 @@ const handleViewMore = async (listing) => {
             />
           </>
         )}
-
-        {/* ----------------------- Submit Review Dialog ----------------------- */}
-        <Dialog
-          open={openSubmitReview}
-          onClose={() => {
-            setOpenSubmitReview(false);
-            setReviewErrors({});
-          }}
-          fullWidth
-          maxWidth="sm"
-        >
-          <DialogTitle>Submit Review</DialogTitle>
-          <DialogContent>
-            <Typography variant="subtitle1" gutterBottom>
-              Listing: {selectedReviewListing && `${selectedReviewListing.make} ${selectedReviewListing.model} (${selectedReviewListing.year})`}
-            </Typography>
-            <Typography variant="subtitle2" gutterBottom>
-              Agent Name: {selectedReviewListing && selectedReviewListing.agent_name}
-            </Typography>
-
-            {/* Rating Field */}
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="submit-review-rating-label">Rating</InputLabel>
-              <Select
-                labelId="submit-review-rating-label"
-                label="Rating"
-                value={reviewFormData.rating}
-                onChange={(e) =>
-                  setReviewFormData({ ...reviewFormData, rating: e.target.value })
-                }
-                error={Boolean(reviewErrors.rating)}
-              >
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <MenuItem key={num} value={num}>
-                    {num} Star{num > 1 ? 's' : ''}
-                  </MenuItem>
-                ))}
-              </Select>
-              {reviewErrors.rating && (
-                <Typography variant="caption" color="error">
-                  {reviewErrors.rating}
-                </Typography>
-              )}
-            </FormControl>
-
-            {/* Review Text Field */}
-            <TextField
-              label="Review"
-              name="review"
-              fullWidth
-              multiline
-              rows={4}
-              margin="normal"
-              value={reviewFormData.review}
-              onChange={(e) =>
-                setReviewFormData({ ...reviewFormData, review: e.target.value })
-              }
-              error={Boolean(reviewErrors.review)}
-              helperText={reviewErrors.review}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => {
-                setOpenSubmitReview(false);
-                setReviewErrors({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitReview}
-              variant="contained"
-              color="primary"
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Submit'}
-            </Button>
-          </DialogActions>
-        </Dialog>
 
         {/* ----------------------- Edit Review Dialog ----------------------- */}
         <Dialog
@@ -1138,6 +1120,9 @@ const handleViewMore = async (listing) => {
               </FormControl>
             </Grid>
 
+            {/* Spacer Grid Item to Create Vertical Space */}
+            <Grid item xs={12} />
+
             {/* Year Range Filter */}
             <Grid item xs={12} md={3}>
               <Typography gutterBottom>Year Range</Typography>
@@ -1237,31 +1222,43 @@ const handleViewMore = async (listing) => {
                         <Button
                           variant="outlined"
                           color="primary"
+                          startIcon={ <ReadMoreIcon/> }
                           onClick={() => handleViewMore(listing)}
-                          sx={{ mr: 1 }}
                         >
                           View More
                         </Button>
                         <Button
-                          variant="contained"
-                          color="secondary"
-                          onClick={() => handleShortlist(listing)}
-                          sx={{
-                            // Optional: Change the button color or keep it consistent
-                            backgroundColor: shortlistedListingIDs.includes(listing.listingID)
-                              ? 'secondary.main' // Keep the original color or choose a different one
-                              : 'secondary.main',
-                          }}
-                        >
-                          {shortlistedListingIDs.includes(listing.listingID) ? 'Shortlist' : 'Shortlist'}
-                        </Button>
-                        <Button
                           variant="outlined"
                           color="success"
+                          startIcon={ <CalculateIcon/> }
                           onClick={() => handleOpenLoanCalculator(listing)}
                           sx={{ ml: 1 }}
                         >
                           Loan Calculator
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            startIcon={<RateReviewIcon />}
+                            onClick={() => handleOpenSubmitReviewDialog(listing)}
+                            sx={{ ml: 1 }}
+                          >
+                            Review
+                          </Button>
+                        <Button
+                          variant="contained"
+                          color="info"
+                          startIcon={ <FavoriteIcon/> }
+                          onClick={() => handleShortlist(listing)}
+                          sx={{
+                            // Optional: Change the button color or keep it consistent
+                            backgroundColor: shortlistedListingIDs.includes(listing.listingID)
+                              ? 'info.main' // Keep the original color or choose a different one
+                              : 'info.main',
+                            ml: 1
+                          }}
+                        >
+                          {shortlistedListingIDs.includes(listing.listingID) ? 'Shortlist' : 'Shortlist'}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -1336,6 +1333,9 @@ const handleViewMore = async (listing) => {
                 <Typography variant="body1">
                   <strong>Seller Name:</strong> {sellerUsername}
                 </Typography>
+                <Typography variant="body1">
+                  <strong>Agent Name:</strong> {agentUsername}
+                </Typography>
                 {/* Add more details as needed */}
               </Box>
             )}
@@ -1370,6 +1370,15 @@ const handleViewMore = async (listing) => {
             </IconButton>
           </DialogTitle>
           <DialogContent dividers>
+          <Typography variant="subtitle1" gutterBottom>
+                Listing: {selectedListing && `${selectedListing.make} ${selectedListing.model} (${selectedListing.year})`}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                  Price:{' '}
+                  {selectedListing.price !== undefined && selectedListing.price !== null
+                    ? `$${selectedListing.price.toLocaleString()}`
+                    : 'N/A'}
+                </Typography>
             <Box
               component="form"
               sx={{
@@ -1389,6 +1398,7 @@ const handleViewMore = async (listing) => {
                   readOnly: true,
                 }}
                 fullWidth
+                sx={{ display: "none" }}
               />
               {/* Annual Interest Rate */}
               <TextField
@@ -1491,6 +1501,85 @@ const handleViewMore = async (listing) => {
             </Button>
           </DialogActions>
         </Dialog>
+        {/* ----------------------- Submit Review Dialog ----------------------- */}
+                <Dialog
+          open={openSubmitReview}
+          onClose={() => {
+            setOpenSubmitReview(false);
+            setReviewErrors({});
+          }}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Submit Review</DialogTitle>
+          <DialogContent>
+            <Typography variant="subtitle1" gutterBottom>
+              Listing: {selectedReviewListing && `${selectedReviewListing.make} ${selectedReviewListing.model} (${selectedReviewListing.year})`}
+            </Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Agent Name: {agentUsername}
+            </Typography>
+
+            {/* Rating Field */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="submit-review-rating-label">Rating</InputLabel>
+              <Select
+                labelId="submit-review-rating-label"
+                label="Rating"
+                value={reviewFormData.rating}
+                onChange={(e) =>
+                  setReviewFormData({ ...reviewFormData, rating: e.target.value })
+                }
+                error={Boolean(reviewErrors.rating)}
+              >
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <MenuItem key={num} value={num}>
+                    {num} Star{num > 1 ? 's' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+              {reviewErrors.rating && (
+                <Typography variant="caption" color="error">
+                  {reviewErrors.rating}
+                </Typography>
+              )}
+            </FormControl>
+
+            {/* Review Text Field */}
+            <TextField
+              label="Review"
+              name="review"
+              fullWidth
+              multiline
+              rows={4}
+              margin="normal"
+              value={reviewFormData.review}
+              onChange={(e) =>
+                setReviewFormData({ ...reviewFormData, review: e.target.value })
+              }
+              error={Boolean(reviewErrors.review)}
+              helperText={reviewErrors.review}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setOpenSubmitReview(false);
+                setReviewErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitReview}
+              variant="contained"
+              color="primary"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Submit'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
   }
@@ -1551,7 +1640,7 @@ const handleViewMore = async (listing) => {
       <Box sx={{ m: 1 }}>
         {/* Header */}
         <Typography variant="h6" gutterBottom>
-          Your Shortlisted Listings
+          My Shortlisted Listings
         </Typography>
 
         {/* Shortlists Table */}
@@ -1588,16 +1677,37 @@ const handleViewMore = async (listing) => {
                         <Button
                           variant="outlined"
                           color="primary"
+                          startIcon={ <ReadMoreIcon/> }
                           onClick={() => handleViewMore(listing)}
-                          sx={{ mr: 1 }}
                         >
                           View More
                         </Button>
+                        {/* Loan Calculator Button */}
+                        <Button
+                          variant="outlined"
+                          color="success"
+                          startIcon={ <CalculateIcon/> }
+                          onClick={() => handleOpenLoanCalculator(listing)}
+                          sx={{ ml: 1 }}
+                        >
+                          Loan Calculator
+                        </Button>
+                        {/* Submit Reviews Button */}
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            startIcon={<RateReviewIcon />}
+                            onClick={() => handleOpenSubmitReviewDialog(listing)}
+                            sx={{ ml: 1 }}
+                          >
+                            Review
+                          </Button>
                         {/* Remove from Shortlist Button */}
                         <Button
                           variant="contained"
                           color="error"
                           onClick={() => handleRemoveShortlist(listing)}
+                          sx={{ ml: 1 }}
                           disabled={isShortlisting}
                         >
                           {isShortlisting ? (
@@ -1605,15 +1715,6 @@ const handleViewMore = async (listing) => {
                           ) : (
                             'Remove'
                           )}
-                        </Button>
-                        {/* Loan Calculator Button */}
-                        <Button
-                          variant="outlined"
-                          color="success"
-                          onClick={() => handleOpenLoanCalculator(listing)}
-                          sx={{ ml: 1 }}
-                        >
-                          Loan Calculator
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -1723,6 +1824,15 @@ const handleViewMore = async (listing) => {
             </IconButton>
           </DialogTitle>
           <DialogContent dividers>
+          <Typography variant="subtitle1" gutterBottom>
+                Listing: {selectedListing && `${selectedListing.make} ${selectedListing.model} (${selectedListing.year})`}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                  Price:{' '}
+                  {selectedListing.price !== undefined && selectedListing.price !== null
+                    ? `$${selectedListing.price.toLocaleString()}`
+                    : 'N/A'}
+                </Typography>
             <Box
               component="form"
               sx={{
@@ -1742,6 +1852,7 @@ const handleViewMore = async (listing) => {
                   readOnly: true,
                 }}
                 fullWidth
+                sx={{ display: "none" }}
               />
               {/* Annual Interest Rate */}
               <TextField
@@ -1824,7 +1935,8 @@ const handleViewMore = async (listing) => {
                   )}
                   {loanDetails.loan_term_months !== undefined && (
                     <Typography variant="body1">
-                      <strong>Loan Term:</strong> {loanDetails.loan_term_months} months
+                      <strong>Loan Term:</strong> {loanDetails.loan_term_months}{' '}
+                      months
                     </Typography>
                   )}
                   {loanDetails.down_payment !== undefined && (
@@ -1840,6 +1952,85 @@ const handleViewMore = async (listing) => {
           <DialogActions>
             <Button onClick={() => setOpenLoanCalculator(false)} color="primary">
               Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+        {/* ----------------------- Submit Review Dialog ----------------------- */}
+        <Dialog
+          open={openSubmitReview}
+          onClose={() => {
+            setOpenSubmitReview(false);
+            setReviewErrors({});
+          }}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Submit Review</DialogTitle>
+          <DialogContent>
+            <Typography variant="subtitle1" gutterBottom>
+              Listing: {selectedReviewListing && `${selectedReviewListing.make} ${selectedReviewListing.model} (${selectedReviewListing.year})`}
+            </Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Agent Name: {agentUsername}
+            </Typography>
+
+            {/* Rating Field */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="submit-review-rating-label">Rating</InputLabel>
+              <Select
+                labelId="submit-review-rating-label"
+                label="Rating"
+                value={reviewFormData.rating}
+                onChange={(e) =>
+                  setReviewFormData({ ...reviewFormData, rating: e.target.value })
+                }
+                error={Boolean(reviewErrors.rating)}
+              >
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <MenuItem key={num} value={num}>
+                    {num} Star{num > 1 ? 's' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+              {reviewErrors.rating && (
+                <Typography variant="caption" color="error">
+                  {reviewErrors.rating}
+                </Typography>
+              )}
+            </FormControl>
+
+            {/* Review Text Field */}
+            <TextField
+              label="Review"
+              name="review"
+              fullWidth
+              multiline
+              rows={4}
+              margin="normal"
+              value={reviewFormData.review}
+              onChange={(e) =>
+                setReviewFormData({ ...reviewFormData, review: e.target.value })
+              }
+              error={Boolean(reviewErrors.review)}
+              helperText={reviewErrors.review}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setOpenSubmitReview(false);
+                setReviewErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitReview}
+              variant="contained"
+              color="primary"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Submit'}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1942,7 +2133,7 @@ const handleViewMore = async (listing) => {
             >
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <RateReviewIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
+                  <FavoriteIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
                   <Typography variant="h6">View Shortlists</Typography>
                 </CardContent>
               </CardActionArea>
@@ -2025,7 +2216,7 @@ const handleViewMore = async (listing) => {
                 selected={currentView === 'shortlists'}
                 onClick={() => handleNavigation('shortlists')}
               >
-                <RateReviewIcon sx={{ marginRight: 2 }} />
+                <FavoriteIcon sx={{ marginRight: 2 }} />
                 <ListItemText primary="View Shortlists" />
               </ListItemButton>
             </ListItem>
