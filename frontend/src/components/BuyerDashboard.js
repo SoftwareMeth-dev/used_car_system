@@ -504,7 +504,7 @@ const handleViewMore = async (listing) => {
    */
   const handleOpenLoanCalculator = (listing) => {
     setLoanFormData({
-      listing_id: listing._id,
+      listing_id: listing._id || listing.listingID,
       annual_interest_rate: '',
       loan_term_months: '',
       down_payment: '',
