@@ -45,6 +45,10 @@ import AddIcon from '@mui/icons-material/Add';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
+import EditReviewIcon from '@mui/icons-material/Edit';  
+import CalculateIcon from '@mui/icons-material/Calculate';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import ReadMoreIcon from '@mui/icons-material/ReadMore';
 
 const drawerWidth = 240;
 
@@ -94,16 +98,33 @@ const BuyerDashboard = () => {
   const [listingPage, setListingPage] = useState(0);
   const [listingRowsPerPage, setListingRowsPerPage] = useState(5);
 
+  // Dynamic Filters for shortlists
+  const [slAvailableMakes, setSlAvailableMakes] = useState([]);
+  const [slSelectedMakes, setSlSelectedMakes] = useState(['All']);
+
+  const [slAvailableModels, setSlAvailableModels] = useState([]);
+  const [slSelectedModels, setSlSelectedModels] = useState(['All']);
+
+  const [slYearRange, setSlYearRange] = useState({ min: 0, max: 0 });
+  const [slSelectedMinYear, setSlSelectedMinYear] = useState(0);
+  const [slSelectedMaxYear, setSlSelectedMaxYear] = useState(0);
+
+  const [slPriceRange, setSlPriceRange] = useState({ min: 0, max: 0 });
+  const [slSelectedMinPrice, setSlSelectedMinPrice] = useState(0);
+  const [slSelectedMaxPrice, setSlSelectedMaxPrice] = useState(0);
+
   // States for Shortlists
   const [shortlists, setShortlists] = useState([]);
   const [filteredShortlists, setFilteredShortlists] = useState([]);
   const [shortlistPage, setShortlistPage] = useState(0);
   const [shortlistRowsPerPage, setShortlistRowsPerPage] = useState(5);
+  const [shortlistSearchQuery, setShortlistSearchQuery] = useState('');
 
   // States for View More Dialog
   const [openViewMore, setOpenViewMore] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [sellerUsername, setSellerUsername] = useState('');
+  const [agentUsername, setAgentUsername] = useState('');
 
   // States for Loan Calculator
   const [openLoanCalculator, setOpenLoanCalculator] = useState(false);
@@ -121,11 +142,82 @@ const BuyerDashboard = () => {
   // State for Shortlist Feedback
   const [isShortlisting, setIsShortlisting] = useState(false);
 
+  // States for Reviews Listings
+  const [allListings, setAllListings] = useState([]);
+  const [filteredListingsForReviews, setFilteredListingsForReviews] = useState([]);
+  const [reviewsListingPage, setReviewsListingPage] = useState(0);
+  const [reviewsListingRowsPerPage, setReviewsListingRowsPerPage] = useState(5);
+
+  // States for Reviews Dialogs
+  const [openSubmitReview, setOpenSubmitReview] = useState(false);
+  const [openEditReview, setOpenEditReview] = useState(false);
+  const [selectedReviewListing, setSelectedReviewListing] = useState(null); // Holds the listing being reviewed or edited
+  const [reviewFormData, setReviewFormData] = useState({
+    rating: '',
+    review: '',
+  });
+  const [reviewErrors, setReviewErrors] = useState({});
+
+  // Handler to Open Submit Review Dialog
+  const handleOpenSubmitReviewDialog = async (listing) => {
+    try {
+      // 1. Fetch the agents's username by sending a GET request to the get_user_id API
+      if (!listing.agent_id) { 
+        setAgentUsername(listing.agent_name); 
+      } else {
+        // Make the API call only if seller_id is present
+        const response = await axios.get(`${config.API_BASE_URL}/get_user_id`, {
+          params: { userid: listing.agent_id }, // Replace 'seller_id' with the correct field if different
+        });
+  
+        // Check if the response contains the user data
+        if (response.status === 200 && response.data.user && response.data.user.username) {
+          setAgentUsername(response.data.user.username);
+        } else {
+          // If the response does not contain the expected data, set to 'Unknown Agent'
+          console.warn('Agent username not found in the response.');
+          setAgentUsername('Unknown Agent');
+          setSnackbar({
+            open: true,
+            message: 'Agent information could not be retrieved.',
+            severity: 'warning',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching agent username:', error);
+      setAgentUsername('Unknown Agent');
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch agent information.',
+        severity: 'error',
+      });
+    }
+
+    setSelectedReviewListing(listing);
+    setReviewFormData({
+      rating: '',
+      review: '',
+    });
+    setOpenSubmitReview(true);
+  };
+
+  // Handler to Open Edit Review Dialog
+  const handleOpenEditReviewDialog = (listing) => {
+    setSelectedReviewListing(listing);
+    setReviewFormData({
+      rating: listing.rating || '',
+      review: listing.review || '',
+    });
+    setOpenEditReview(true);
+  };
+
   // Mapping of view titles
   const titleMap = {
     landing: 'Buyer Dashboard',
     listings: 'Buyer Dashboard - Used Car Listings',
     shortlists: 'Buyer Dashboard - Shortlists',
+    reviews: 'Buyer Dashboard - Manage Reviews',
   };
 
   // Set the document title based on currentView
@@ -291,9 +383,34 @@ const BuyerDashboard = () => {
         const shortlistData = response.data.shortlist; // Array of listing objects
         setShortlists(shortlistData);
         setFilteredShortlists(shortlistData);
+
         // Extract listingIDs for quick reference
         const listingIDs = shortlistData.map((listing) => listing.listingID);
         setShortlistedListingIDs(listingIDs);
+        // Extract unique Makes and Models
+        const makes = [...new Set(shortlistData.map((listing) => listing.make))];
+        setSlAvailableMakes(makes);
+        setSlSelectedMakes(['All']);
+
+        const models = [...new Set(shortlistData.map((listing) => listing.model))];
+        setSlAvailableModels(models);
+        setSlSelectedModels(['All']);
+
+        // Determine Year Range
+        const years = shortlistData.map((listing) => listing.year);
+        const minYear = years.length > 0 ? Math.min(...years) : 0;
+        const maxYear = years.length > 0 ? Math.max(...years) : 0;
+        setSlYearRange({ min: minYear, max: maxYear });
+        setSlSelectedMinYear(minYear);
+        setSlSelectedMaxYear(maxYear);
+
+        // Determine Price Range
+        const prices = shortlistData.map((listing) => listing.price);
+        const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+        const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+        setSlPriceRange({ min: minPrice, max: maxPrice });
+        setSlSelectedMinPrice(minPrice);
+        setSlSelectedMaxPrice(maxPrice);
       } else {
         setSnackbar({
           open: true,
@@ -321,6 +438,8 @@ const BuyerDashboard = () => {
       fetchListings();
     } else if (currentView === 'shortlists') {
       fetchShortlists();
+    } else if (currentView === 'reviews') {
+      fetchListingsForReviews();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentView]);
@@ -384,6 +503,64 @@ const BuyerDashboard = () => {
     setFilteredListings(listings);
     setListingPage(0); // Reset to first page after reset
   };
+
+  /**
+   * User Story: As a buyer, I want to search my shortlists so that I can compare.
+   * Trigger: The buyer enters a search query and submits.
+   */
+
+  const handleSearchShortlists = () => {
+    let filtered = [...shortlists];
+
+    // Filter by Selected Makes
+    if (slSelectedMakes.length > 0 && !slSelectedMakes.includes('All')) {
+      filtered = filtered.filter((listing) =>
+        slSelectedMakes.includes(listing.make)
+      );
+    }
+
+    // Filter by Selected Models
+    if (slSelectedModels.length > 0 && !slSelectedModels.includes('All')) {
+      filtered = filtered.filter((listing) =>
+        slSelectedModels.includes(listing.model)
+      );
+    }
+
+    // Filter by Year Range
+    if (slSelectedMinYear !== slYearRange.min || slSelectedMaxYear !== slYearRange.max) {
+      filtered = filtered.filter(
+        (listing) =>
+          listing.year >= slSelectedMinYear && listing.year <= slSelectedMaxYear
+      );
+    }
+
+    // Filter by Price Range
+    if (slSelectedMinPrice !== priceRange.min || slSelectedMaxPrice !== slPriceRange.max) {
+      filtered = filtered.filter(
+        (listing) =>
+          listing.price >= slSelectedMinPrice && listing.price <= slSelectedMaxPrice
+      );
+    }
+
+    setFilteredShortlists(filtered);
+    setShortlistPage(0); // Reset to first page after search
+  };
+
+  /**
+   * User Story: As a buyer, I want to reset the search to view all my shortlists.
+   * Trigger: The buyer clicks the reset search button.
+   */
+  const handleResetSearchShortlist = () => {
+    setShortlistSearchQuery('');
+    setSlSelectedMakes(['All']);
+    setSlSelectedModels(['All']);
+    setSlSelectedMinYear(slYearRange.min);
+    setSlSelectedMaxYear(slYearRange.max);
+    setSlSelectedMinPrice(slPriceRange.min);
+    setSlSelectedMaxPrice(slPriceRange.max);
+    setFilteredShortlists(shortlists);
+    setShortlistPage(0); // Reset to first page after reset
+  };
  
 // ----------------------- View More Functionality -----------------------
 const handleViewMore = async (listing) => { 
@@ -406,7 +583,6 @@ const handleViewMore = async (listing) => {
 
   try {
     // 2. Fetch the seller's username by sending a GET request to the get_user_id API
-    console.log(listing);
     if (!listing.seller_id) { 
       setSellerUsername(listing.seller_name); 
     } else {
@@ -435,6 +611,40 @@ const handleViewMore = async (listing) => {
     setSnackbar({
       open: true,
       message: 'Failed to fetch seller information.',
+      severity: 'error',
+    });
+  }
+
+  try {
+    // 3. Fetch the agents's username by sending a GET request to the get_user_id API
+    if (!listing.agent_id) { 
+      setAgentUsername(listing.agent_name); 
+    } else {
+      // Make the API call only if seller_id is present
+      const response = await axios.get(`${config.API_BASE_URL}/get_user_id`, {
+        params: { userid: listing.agent_id }, // Replace 'seller_id' with the correct field if different
+      });
+
+      // Check if the response contains the user data
+      if (response.status === 200 && response.data.user && response.data.user.username) {
+        setAgentUsername(response.data.user.username);
+      } else {
+        // If the response does not contain the expected data, set to 'Unknown Agent'
+        console.warn('Agent username not found in the response.');
+        setAgentUsername('Unknown Agent');
+        setSnackbar({
+          open: true,
+          message: 'Agent information could not be retrieved.',
+          severity: 'warning',
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching agent username:', error);
+    setAgentUsername('Unknown Agent');
+    setSnackbar({
+      open: true,
+      message: 'Failed to fetch agent information.',
       severity: 'error',
     });
   }
@@ -509,6 +719,7 @@ const handleViewMore = async (listing) => {
       loan_term_months: '',
       down_payment: '',
     });
+    setSelectedListing(listing);
     setLoanDetails(null);
     setOpenLoanCalculator(true);
   };
@@ -583,6 +794,345 @@ const handleViewMore = async (listing) => {
       down_payment: '',
     });
     setLoanDetails(null);
+  };
+
+
+  // ----------------------- Reviews Functions -----------------------
+
+ // Fetch Listings for Reviews using the updated get_listings_with_reviews endpoint
+ const fetchListingsForReviews = async () => {
+  if (!userID) {
+    setSnackbar({
+      open: true,
+      message: 'Buyer information not found. Please log in again.',
+      severity: 'error',
+    });
+    navigate('/login');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const reviewsEndpoint = `${config.API_BASE_URL}/get_listings_with_reviews/${userID}`;
+    const response = await axios.get(reviewsEndpoint);
+
+    if (response.status === 200) {
+      const wholeListings = response.data.listings; // Each listing now includes review details and agent_id
+
+      if (wholeListings.length === 0) {
+        setSnackbar({
+          open: true,
+          message: 'No listings found for your account.',
+          severity: 'info',
+        });
+        setAllListings([]);
+        setFilteredListingsForReviews([]); 
+        return;
+      }
+
+      setAllListings(wholeListings);
+      setFilteredListingsForReviews(wholeListings);
+      setReviewsListingPage(0); // Reset to first page
+
+
+    } else {
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch listings with reviews.',
+        severity: 'error',
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching listings for reviews:', error);
+    setSnackbar({
+      open: true,
+      message: 'Failed to fetch listings for reviews.',
+      severity: 'error',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+  /**
+   * User Story: As a buyer, I want to submit a review for an agent.
+   * Trigger: The buyer clicks "Submit Review" on a listing without a review.
+   */
+  const handleSubmitReview = async () => {
+    if (!validateReviewForm()) return;
+    setLoading(true);
+    try {
+      const payload = {
+        reviewer_role: 'buyer', // Ensure this matches backend expectations
+        rating: Number(reviewFormData.rating),
+        review: reviewFormData.review,
+      };
+      const tempListingID = selectedReviewListing._id || selectedReviewListing.listingID;
+      const endpoint = `${config.API_BASE_URL}/rate_review_agent/${userID}/${tempListingID}`;
+      const response = await axios.post(endpoint, payload);
+      if (response.status === 201 || response.status === 200) {
+        setSnackbar({
+          open: true,
+          message: 'Review submitted successfully.',
+          severity: 'success',
+        });
+        fetchListingsForReviews(); // Refresh listings with reviews
+        setOpenSubmitReview(false); // Close dialog
+        setSelectedReviewListing(null);
+        setReviewFormData({ rating: '', review: '' });
+        setReviewErrors({});
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      if (error.response && error.response.data && error.response.data.error) {
+        setSnackbar({
+          open: true,
+          message: error.response.data.error,
+          severity: 'error',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to submit review.',
+          severity: 'error',
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * User Story: As a buyer, I want to edit my submitted reviews so that I can update my feedback on agents.
+   * Trigger: The buyer selects to edit a review.
+   */
+  const handleEditReview = async () => {
+    if (!validateReviewForm()) return;
+    setLoading(true);
+    try {
+      const payload = {
+        reviewer_id: userID, // Current user's ID for authorization
+        reviewer_role: 'buyer', // Ensure this matches backend expectations
+        rating: Number(reviewFormData.rating),
+        review: reviewFormData.review,
+      };
+      const endpoint = `${config.API_BASE_URL}/edit_review_agent/${selectedReviewListing.review_id}`;
+      const response = await axios.put(endpoint, payload);
+      if (response.status === 200) {
+        setSnackbar({
+          open: true,
+          message: 'Review updated successfully.',
+          severity: 'success',
+        });
+        fetchListingsForReviews(); // Refresh listings with reviews
+        setOpenEditReview(false); // Close dialog
+        setSelectedReviewListing(null);
+        setReviewFormData({ rating: '', review: '' });
+        setReviewErrors({});
+      }
+    } catch (error) {
+      console.error('Error editing review:', error);
+      if (error.response && error.response.data && error.response.data.error) {
+        setSnackbar({
+          open: true,
+          message: error.response.data.error,
+          severity: 'error',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to edit review.',
+          severity: 'error',
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Validate Review Form
+  const validateReviewForm = () => {
+    const errors = {};
+    if (!reviewFormData.rating) {
+      errors.rating = 'Rating is required.';
+    } else if (
+      isNaN(reviewFormData.rating) ||
+      Number(reviewFormData.rating) < 1 ||
+      Number(reviewFormData.rating) > 5
+    ) {
+      errors.rating = 'Rating must be between 1 and 5.';
+    }
+    // 'review' is optional
+    setReviewErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // ----------------------- Reviews Listings Render Function -----------------------
+
+  const renderReviews = () => {
+    // Calculate the slice of listings to display based on pagination
+    const start = reviewsListingPage * reviewsListingRowsPerPage;
+    const end = start + reviewsListingRowsPerPage;
+    const paginatedListings = filteredListingsForReviews.slice(start, end);
+
+    return (
+      <Box sx={{ m:1 }}>
+        <Typography variant="h6" gutterBottom>
+          Manage Reviews
+        </Typography>
+ 
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Make</TableCell>
+                  <TableCell>Model</TableCell>
+                  <TableCell>Year</TableCell>
+                  <TableCell>Price</TableCell>
+                  <TableCell>Agent ID</TableCell> {/* New Column for Agent ID */}
+                  <TableCell>Created At</TableCell>
+                  <TableCell>Review Status</TableCell>
+                  <TableCell>Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedListings.length > 0 ? (
+                  paginatedListings.map((listing) => (
+                    <TableRow key={listing.listing_id}>
+                      <TableCell>{listing.make}</TableCell>
+                      <TableCell>{listing.model}</TableCell>
+                      <TableCell>{listing.year}</TableCell>
+                      <TableCell>${listing.price.toLocaleString()}</TableCell>
+                      <TableCell>{listing.agent_name}</TableCell> {/* Display Agent ID */}
+                      <TableCell>{new Date(listing.created_at).toLocaleString()}</TableCell>
+                      <TableCell>
+                        {listing.review_id ? 'Reviewed' : 'Not Reviewed'}
+                      </TableCell>
+                      <TableCell>
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            startIcon={<EditReviewIcon />}
+                            onClick={() => handleOpenEditReviewDialog(listing)}
+                          >
+                            Edit Review
+                          </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      No listings found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            {/* Pagination Controls */}
+            <TablePagination
+              component="div"
+              count={filteredListingsForReviews.length}
+              page={reviewsListingPage}
+              onPageChange={(event, newPage) => setReviewsListingPage(newPage)}
+              rowsPerPage={reviewsListingRowsPerPage}
+              onRowsPerPageChange={(event) => {
+                setReviewsListingRowsPerPage(parseInt(event.target.value, 10));
+                setReviewsListingPage(0); // Reset to first page
+              }}
+              rowsPerPageOptions={[5, 10, 25]}
+              labelRowsPerPage="Listings per page:"
+              sx={{ mt: 2 }}
+            />
+          </>
+        )}
+
+        {/* ----------------------- Edit Review Dialog ----------------------- */}
+        <Dialog
+          open={openEditReview}
+          onClose={() => {
+            setOpenEditReview(false);
+            setReviewErrors({});
+          }}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Edit Review</DialogTitle>
+          <DialogContent>
+            <Typography variant="subtitle1" gutterBottom>
+              Listing: {selectedReviewListing && `${selectedReviewListing.make} ${selectedReviewListing.model} (${selectedReviewListing.year})`}
+            </Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Agent Name: {selectedReviewListing && selectedReviewListing.agent_name}
+            </Typography>
+
+            {/* Rating Field */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="edit-review-rating-label">Rating</InputLabel>
+              <Select
+                labelId="edit-review-rating-label"
+                label="Rating"
+                value={reviewFormData.rating}
+                onChange={(e) =>
+                  setReviewFormData({ ...reviewFormData, rating: e.target.value })
+                }
+                error={Boolean(reviewErrors.rating)}
+              >
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <MenuItem key={num} value={num}>
+                    {num} Star{num > 1 ? 's' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+              {reviewErrors.rating && (
+                <Typography variant="caption" color="error">
+                  {reviewErrors.rating}
+                </Typography>
+              )}
+            </FormControl>
+
+            {/* Review Text Field */}
+            <TextField
+              label="Review"
+              name="review"
+              fullWidth
+              multiline
+              rows={4}
+              margin="normal"
+              value={reviewFormData.review}
+              onChange={(e) =>
+                setReviewFormData({ ...reviewFormData, review: e.target.value })
+              }
+              error={Boolean(reviewErrors.review)}
+              helperText={reviewErrors.review}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setOpenEditReview(false);
+                setReviewErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditReview}
+              variant="contained"
+              color="primary"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Update'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
   };
 
   // ----------------------- Render Listings -----------------------
@@ -668,6 +1218,9 @@ const handleViewMore = async (listing) => {
                 </Select>
               </FormControl>
             </Grid>
+
+            {/* Spacer Grid Item to Create Vertical Space */}
+            <Grid item xs={12} />
 
             {/* Year Range Filter */}
             <Grid item xs={12} md={3}>
@@ -768,31 +1321,43 @@ const handleViewMore = async (listing) => {
                         <Button
                           variant="outlined"
                           color="primary"
+                          startIcon={ <ReadMoreIcon/> }
                           onClick={() => handleViewMore(listing)}
-                          sx={{ mr: 1 }}
                         >
                           View More
                         </Button>
                         <Button
-                          variant="contained"
-                          color="secondary"
-                          onClick={() => handleShortlist(listing)}
-                          sx={{
-                            // Optional: Change the button color or keep it consistent
-                            backgroundColor: shortlistedListingIDs.includes(listing.listingID)
-                              ? 'secondary.main' // Keep the original color or choose a different one
-                              : 'secondary.main',
-                          }}
-                        >
-                          {shortlistedListingIDs.includes(listing.listingID) ? 'Shortlist' : 'Shortlist'}
-                        </Button>
-                        <Button
                           variant="outlined"
                           color="success"
+                          startIcon={ <CalculateIcon/> }
                           onClick={() => handleOpenLoanCalculator(listing)}
                           sx={{ ml: 1 }}
                         >
                           Loan Calculator
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            startIcon={<RateReviewIcon />}
+                            onClick={() => handleOpenSubmitReviewDialog(listing)}
+                            sx={{ ml: 1 }}
+                          >
+                            Review
+                          </Button>
+                        <Button
+                          variant="contained"
+                          color="info"
+                          startIcon={ <FavoriteIcon/> }
+                          onClick={() => handleShortlist(listing)}
+                          sx={{
+                            // Optional: Change the button color or keep it consistent
+                            backgroundColor: shortlistedListingIDs.includes(listing.listingID)
+                              ? 'info.main' // Keep the original color or choose a different one
+                              : 'info.main',
+                            ml: 1
+                          }}
+                        >
+                          {shortlistedListingIDs.includes(listing.listingID) ? 'Shortlist' : 'Shortlist'}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -867,6 +1432,9 @@ const handleViewMore = async (listing) => {
                 <Typography variant="body1">
                   <strong>Seller Name:</strong> {sellerUsername}
                 </Typography>
+                <Typography variant="body1">
+                  <strong>Agent Name:</strong> {agentUsername}
+                </Typography>
                 {/* Add more details as needed */}
               </Box>
             )}
@@ -901,6 +1469,16 @@ const handleViewMore = async (listing) => {
             </IconButton>
           </DialogTitle>
           <DialogContent dividers>
+          <Typography variant="subtitle1" gutterBottom>
+                Listing: {selectedListing && `${selectedListing.make} ${selectedListing.model} (${selectedListing.year})`}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                  Price:{' '}
+                  {selectedListing && selectedListing.price !== undefined && selectedListing.price !== null
+                    ? `$${selectedListing.price.toLocaleString()}`
+                    : 'N/A'}
+                </Typography>
+
             <Box
               component="form"
               sx={{
@@ -920,6 +1498,7 @@ const handleViewMore = async (listing) => {
                   readOnly: true,
                 }}
                 fullWidth
+                sx={{ display: "none" }}
               />
               {/* Annual Interest Rate */}
               <TextField
@@ -1022,6 +1601,85 @@ const handleViewMore = async (listing) => {
             </Button>
           </DialogActions>
         </Dialog>
+        {/* ----------------------- Submit Review Dialog ----------------------- */}
+                <Dialog
+          open={openSubmitReview}
+          onClose={() => {
+            setOpenSubmitReview(false);
+            setReviewErrors({});
+          }}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Submit Review</DialogTitle>
+          <DialogContent>
+            <Typography variant="subtitle1" gutterBottom>
+              Listing: {selectedReviewListing && `${selectedReviewListing.make} ${selectedReviewListing.model} (${selectedReviewListing.year})`}
+            </Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Agent Name: {agentUsername}
+            </Typography>
+
+            {/* Rating Field */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="submit-review-rating-label">Rating</InputLabel>
+              <Select
+                labelId="submit-review-rating-label"
+                label="Rating"
+                value={reviewFormData.rating}
+                onChange={(e) =>
+                  setReviewFormData({ ...reviewFormData, rating: e.target.value })
+                }
+                error={Boolean(reviewErrors.rating)}
+              >
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <MenuItem key={num} value={num}>
+                    {num} Star{num > 1 ? 's' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+              {reviewErrors.rating && (
+                <Typography variant="caption" color="error">
+                  {reviewErrors.rating}
+                </Typography>
+              )}
+            </FormControl>
+
+            {/* Review Text Field */}
+            <TextField
+              label="Review"
+              name="review"
+              fullWidth
+              multiline
+              rows={4}
+              margin="normal"
+              value={reviewFormData.review}
+              onChange={(e) =>
+                setReviewFormData({ ...reviewFormData, review: e.target.value })
+              }
+              error={Boolean(reviewErrors.review)}
+              helperText={reviewErrors.review}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setOpenSubmitReview(false);
+                setReviewErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitReview}
+              variant="contained"
+              color="primary"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Submit'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     );
   }
@@ -1080,10 +1738,149 @@ const handleViewMore = async (listing) => {
 
     return (
       <Box sx={{ m: 1 }}>
-        {/* Header */}
-        <Typography variant="h6" gutterBottom>
-          Your Shortlisted Listings
-        </Typography>
+        {/* Search and Filters Section */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Search My Shortlists
+          </Typography>
+          <Grid container spacing={3}>
+            {/* Make Filter */}
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel id="make-filter-label">Make</InputLabel>
+                <Select
+                  labelId="make-filter-label"
+                  multiple
+                  value={slSelectedMakes}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.includes('All')) {
+                      setSlSelectedMakes(['All']);
+                    } else {
+                      setSlSelectedMakes(value);
+                    }
+                  }}
+                  label="Make"
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {/* 'All' Option */}
+                  <MenuItem value="All">
+                    <Checkbox checked={slSelectedMakes.includes('All')} />
+                    <ListItemText primary="All" />
+                  </MenuItem>
+                  {slAvailableMakes.map((make) => (
+                    <MenuItem key={make} value={make}>
+                      <Checkbox checked={slSelectedMakes.includes(make)} />
+                      <ListItemText primary={make} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Model Filter */}
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel id="model-filter-label">Model</InputLabel>
+                <Select
+                  labelId="model-filter-label"
+                  multiple
+                  value={slSelectedModels}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.includes('All')) {
+                      setSlSelectedModels(['All']);
+                    } else {
+                      setSlSelectedModels(value);
+                    }
+                  }}
+                  label="Model"
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {/* 'All' Option */}
+                  <MenuItem value="All">
+                    <Checkbox checked={slSelectedModels.includes('All')} />
+                    <ListItemText primary="All" />
+                  </MenuItem>
+                  {slAvailableModels.map((model) => (
+                    <MenuItem key={model} value={model}>
+                      <Checkbox checked={slSelectedModels.includes(model)} />
+                      <ListItemText primary={model} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Spacer Grid Item to Create Vertical Space */}
+            <Grid item xs={12} />
+
+            {/* Year Range Filter */}
+            <Grid item xs={12} md={3}>
+              <Typography gutterBottom>Year Range</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Min Year"
+                  type="number"
+                  value={slSelectedMinYear}
+                  onChange={(e) => setSlSelectedMinYear(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: slYearRange.min, max: slYearRange.max } }}
+                />
+                <TextField
+                  label="Max Year"
+                  type="number"
+                  value={slSelectedMaxYear}
+                  onChange={(e) => setSlSelectedMaxYear(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: slYearRange.min, max: slYearRange.max } }}
+                />
+              </Box>
+            </Grid>
+
+            {/* Price Range Filter */}
+            <Grid item xs={12} md={3}>
+              <Typography gutterBottom>Price Range ($)</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Min Price"
+                  type="number"
+                  value={slSelectedMinPrice}
+                  onChange={(e) => setSlSelectedMinPrice(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: slPriceRange.min, max: slPriceRange.max } }}
+                />
+                <TextField
+                  label="Max Price"
+                  type="number"
+                  value={slSelectedMaxPrice}
+                  onChange={(e) => setSlSelectedMaxPrice(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: slPriceRange.min, max: slPriceRange.max } }}
+                />
+              </Box>
+            </Grid>
+          </Grid>
+          {/* Filter Actions */}
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<SearchIcon />}
+              onClick={handleSearchShortlists}
+            >
+              Search
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleResetSearchShortlist}
+            >
+              Reset
+            </Button>
+          </Box>
+        </Box>
+
 
         {/* Shortlists Table */}
         {loading ? (
@@ -1119,16 +1916,37 @@ const handleViewMore = async (listing) => {
                         <Button
                           variant="outlined"
                           color="primary"
+                          startIcon={ <ReadMoreIcon/> }
                           onClick={() => handleViewMore(listing)}
-                          sx={{ mr: 1 }}
                         >
                           View More
                         </Button>
+                        {/* Loan Calculator Button */}
+                        <Button
+                          variant="outlined"
+                          color="success"
+                          startIcon={ <CalculateIcon/> }
+                          onClick={() => handleOpenLoanCalculator(listing)}
+                          sx={{ ml: 1 }}
+                        >
+                          Loan Calculator
+                        </Button>
+                        {/* Submit Reviews Button */}
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            startIcon={<RateReviewIcon />}
+                            onClick={() => handleOpenSubmitReviewDialog(listing)}
+                            sx={{ ml: 1 }}
+                          >
+                            Review
+                          </Button>
                         {/* Remove from Shortlist Button */}
                         <Button
                           variant="contained"
                           color="error"
                           onClick={() => handleRemoveShortlist(listing)}
+                          sx={{ ml: 1 }}
                           disabled={isShortlisting}
                         >
                           {isShortlisting ? (
@@ -1136,15 +1954,6 @@ const handleViewMore = async (listing) => {
                           ) : (
                             'Remove'
                           )}
-                        </Button>
-                        {/* Loan Calculator Button */}
-                        <Button
-                          variant="outlined"
-                          color="success"
-                          onClick={() => handleOpenLoanCalculator(listing)}
-                          sx={{ ml: 1 }}
-                        >
-                          Loan Calculator
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -1254,6 +2063,15 @@ const handleViewMore = async (listing) => {
             </IconButton>
           </DialogTitle>
           <DialogContent dividers>
+          <Typography variant="subtitle1" gutterBottom>
+                Listing: {selectedListing && `${selectedListing.make} ${selectedListing.model} (${selectedListing.year})`}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                  Price:{' '}
+                  {selectedListing && selectedListing.price !== undefined && selectedListing.price !== null
+                    ? `$${selectedListing.price.toLocaleString()}`
+                    : 'N/A'}
+                </Typography>
             <Box
               component="form"
               sx={{
@@ -1273,6 +2091,7 @@ const handleViewMore = async (listing) => {
                   readOnly: true,
                 }}
                 fullWidth
+                sx={{ display: "none" }}
               />
               {/* Annual Interest Rate */}
               <TextField
@@ -1355,7 +2174,8 @@ const handleViewMore = async (listing) => {
                   )}
                   {loanDetails.loan_term_months !== undefined && (
                     <Typography variant="body1">
-                      <strong>Loan Term:</strong> {loanDetails.loan_term_months} months
+                      <strong>Loan Term:</strong> {loanDetails.loan_term_months}{' '}
+                      months
                     </Typography>
                   )}
                   {loanDetails.down_payment !== undefined && (
@@ -1371,6 +2191,85 @@ const handleViewMore = async (listing) => {
           <DialogActions>
             <Button onClick={() => setOpenLoanCalculator(false)} color="primary">
               Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+        {/* ----------------------- Submit Review Dialog ----------------------- */}
+        <Dialog
+          open={openSubmitReview}
+          onClose={() => {
+            setOpenSubmitReview(false);
+            setReviewErrors({});
+          }}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Submit Review</DialogTitle>
+          <DialogContent>
+            <Typography variant="subtitle1" gutterBottom>
+              Listing: {selectedReviewListing && `${selectedReviewListing.make} ${selectedReviewListing.model} (${selectedReviewListing.year})`}
+            </Typography>
+            <Typography variant="subtitle2" gutterBottom>
+              Agent Name: {agentUsername}
+            </Typography>
+
+            {/* Rating Field */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="submit-review-rating-label">Rating</InputLabel>
+              <Select
+                labelId="submit-review-rating-label"
+                label="Rating"
+                value={reviewFormData.rating}
+                onChange={(e) =>
+                  setReviewFormData({ ...reviewFormData, rating: e.target.value })
+                }
+                error={Boolean(reviewErrors.rating)}
+              >
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <MenuItem key={num} value={num}>
+                    {num} Star{num > 1 ? 's' : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+              {reviewErrors.rating && (
+                <Typography variant="caption" color="error">
+                  {reviewErrors.rating}
+                </Typography>
+              )}
+            </FormControl>
+
+            {/* Review Text Field */}
+            <TextField
+              label="Review"
+              name="review"
+              fullWidth
+              multiline
+              rows={4}
+              margin="normal"
+              value={reviewFormData.review}
+              onChange={(e) =>
+                setReviewFormData({ ...reviewFormData, review: e.target.value })
+              }
+              error={Boolean(reviewErrors.review)}
+              helperText={reviewErrors.review}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setOpenSubmitReview(false);
+                setReviewErrors({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitReview}
+              variant="contained"
+              color="primary"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Submit'}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1473,8 +2372,32 @@ const handleViewMore = async (listing) => {
             >
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
                 <CardContent sx={{ textAlign: 'center' }}>
-                  <RateReviewIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
+                  <FavoriteIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
                   <Typography variant="h6">View Shortlists</Typography>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          </Grid>
+          <Grid item>
+            <Card
+              sx={{
+                width: 250,
+                height: 250,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: 3,
+                '&:hover': {
+                  boxShadow: 6,
+                },
+              }}
+              onClick={() => handleNavigation('reviews')}
+            >
+              <CardActionArea sx={{ width: '100%', height: '100%' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <EditReviewIcon sx={{ fontSize: 50, color: 'primary.main', mb: 2 }} />
+                  <Typography variant="h6">Manage Reviews</Typography>
                 </CardContent>
               </CardActionArea>
             </Card>
@@ -1532,8 +2455,19 @@ const handleViewMore = async (listing) => {
                 selected={currentView === 'shortlists'}
                 onClick={() => handleNavigation('shortlists')}
               >
-                <RateReviewIcon sx={{ marginRight: 2 }} />
+                <FavoriteIcon sx={{ marginRight: 2 }} />
                 <ListItemText primary="View Shortlists" />
+              </ListItemButton>
+            </ListItem>
+
+            {/* Manage Reviews Button */}
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={currentView === 'reviews'}
+                onClick={() => handleNavigation('reviews')}
+              >
+                <EditReviewIcon sx={{ marginRight: 2 }} />
+                <ListItemText primary="Manage Reviews" />
               </ListItemButton>
             </ListItem>
           </List>
@@ -1550,6 +2484,8 @@ const handleViewMore = async (listing) => {
                 ? 'Used Car Listings'
                 : currentView === 'shortlists'
                 ? 'Shortlists'
+                : currentView === 'reviews'
+                ? 'Manage Reviews'
                 : 'Dashboard'}
             </Typography>
             <Button color="inherit" onClick={handleLogout}>
@@ -1574,6 +2510,7 @@ const handleViewMore = async (listing) => {
         {currentView === 'landing' && renderLandingPage()}
         {currentView === 'listings' && renderListings()}
         {currentView === 'shortlists' && renderShortlists()}
+        {currentView === 'reviews' && renderReviews()}
       </Box>
     </Box>
   );
