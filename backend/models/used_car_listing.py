@@ -424,6 +424,10 @@ class UsedCarListing:
         Retrieves all listings associated with a user (seller or buyer)
         and appends the corresponding review details if available.
 
+        If no listings are found based on the user's role, it searches the
+        reviews collection for reviews authored by the user and retrieves
+        the associated listings.
+
         Additionally, fetches the agent's username for the agent_id and includes it in the response.
 
         Parameters:
@@ -472,6 +476,39 @@ class UsedCarListing:
             listings = list(listings_cursor) 
             logger.debug(f"Number of listings found for user_id {user_id}: {len(listings)}")
 
+            # Step 5: If no listings found, search reviews authored by the user
+            if not listings:
+                logger.info(f"No listings found for user_id {user_id} as {role}. Searching reviews authored by the user.")
+                
+                # Search reviews where reviewer_id matches user_id
+                reviews_cursor = reviews_collection.find({'reviewer_id': user_id})
+                reviews = list(reviews_cursor)
+                logger.debug(f"Number of reviews found authored by user_id {user_id}: {len(reviews)}")
+
+                if not reviews:
+                    logger.info(f"No reviews authored by user_id {user_id}. Returning empty listings.")
+                    return {"message": "No listings found for this user.", "listings": []}, 200  # OK
+
+                # Extract unique listing_ids from the reviews
+                listing_ids = {str(review['listing_id']) for review in reviews if 'listing_id' in review}
+                logger.debug(f"Listing IDs extracted from reviews: {listing_ids}")
+
+                if not listing_ids:
+                    logger.info(f"No listing_ids found in reviews authored by user_id {user_id}.")
+                    return {"message": "No listings found for this user.", "listings": []}, 200  # OK
+
+                # Convert listing_ids to ObjectId
+                try:
+                    listing_object_ids = [ObjectId(lid) for lid in listing_ids]
+                except InvalidId as e:
+                    logger.error(f"Invalid listing_id in reviews: {e}")
+                    return {"error": "Invalid listing_id found in reviews."}, 400  # Bad Request
+
+                # Fetch listings based on the extracted listing_ids
+                listings_cursor = used_car_collection.find({"_id": {"$in": listing_object_ids}})
+                listings = list(listings_cursor)
+                logger.debug(f"Number of listings retrieved from listing_ids in reviews: {len(listings)}")
+
             if not listings:
                 logger.info(f"No listings found for user_id: {user_id}")
                 return {"message": "No listings found for this user.", "listings": []}, 200  # OK
@@ -480,7 +517,7 @@ class UsedCarListing:
             listing_ids = [str(listing['_id']) for listing in listings]
             logger.debug(f"Listing IDs: {listing_ids}")
 
-            # Step 5: Query all reviews where listing_id matches
+            # Step 6: Query all reviews where listing_id matches
             seller_reviews_cursor = reviews_collection.find({
                 'listing_id': {"$in": listing_ids}
             })
@@ -498,7 +535,7 @@ class UsedCarListing:
             } 
             logger.debug(f"Review map: {review_map}")
 
-            # Step 6: Append review details and fetch agent_name
+            # Step 7: Append review details and fetch agent_name
             augmented_listings = []
             for listing in listings: 
                 listing_id_str = str(listing['_id'])
