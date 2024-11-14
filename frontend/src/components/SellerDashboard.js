@@ -102,8 +102,7 @@ const SellerDashboard = () => {
   const [allReviews, setAllReviews] = useState([]);
   const [filteredReviews, setFilteredReviews] = useState([]);
   const [selectedReviewRole, setSelectedReviewRole] = useState('');
-  const [reviewerRoles, setReviewerRoles] = useState([]);
-  const [averageRating, setAverageRating] = useState(null);
+  const [reviewerRoles, setReviewerRoles] = useState([]); 
 
   // States for Reviews Dialogs
   const [openSubmitReview, setOpenSubmitReview] = useState(false);
@@ -192,7 +191,7 @@ const SellerDashboard = () => {
         {/* Advanced Filter Section */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h6" gutterBottom>
-            Advanced Filters
+            Search my Listings
           </Typography>
           <Grid container spacing={3}>
             {/* Make Filter */}
@@ -320,14 +319,14 @@ const SellerDashboard = () => {
               startIcon={<SearchIcon />}
               onClick={handleSearchListings}
             >
-              Apply Filters
+              Search
             </Button>
             <Button
               variant="outlined"
               color="secondary"
               onClick={handleResetSearch}
             >
-              Reset Filters
+              Reset
             </Button>
           </Box>
         </Box>
@@ -504,8 +503,7 @@ const SellerDashboard = () => {
             severity: 'info',
           });
           setAllListings([]);
-          setFilteredListingsForReviews([]);
-          setAverageRating(null);
+          setFilteredListingsForReviews([]); 
           return;
         }
 
@@ -513,14 +511,7 @@ const SellerDashboard = () => {
         setFilteredListingsForReviews(sellerListings);
         setReviewsListingPage(0); // Reset to first page
 
-        // Optionally, calculate average rating across all reviews
-        const reviews = sellerListings.filter((listing) => listing.review_id);
-        if (reviews.length > 0) {
-          const totalRating = reviews.reduce((acc, listing) => acc + listing.rating, 0);
-          setAverageRating((totalRating / reviews.length).toFixed(2));
-        } else {
-          setAverageRating(null);
-        }
+ 
       } else {
         setSnackbar({
           open: true,
@@ -740,14 +731,7 @@ const SellerDashboard = () => {
         <Typography variant="h5" gutterBottom>
           Manage Reviews
         </Typography>
-
-        {/* Display Average Rating */}
-        {averageRating && (
-          <Typography variant="subtitle1" gutterBottom>
-            Average Rating: {averageRating} / 5
-          </Typography>
-        )}
-
+ 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
             <CircularProgress />
@@ -775,7 +759,7 @@ const SellerDashboard = () => {
                       <TableCell>{listing.model}</TableCell>
                       <TableCell>{listing.year}</TableCell>
                       <TableCell>${listing.price.toLocaleString()}</TableCell>
-                      <TableCell>{listing.agent_id}</TableCell> {/* Display Agent ID */}
+                      <TableCell>{listing.agent_name}</TableCell> {/* Display Agent ID */}
                       <TableCell>{new Date(listing.created_at).toLocaleString()}</TableCell>
                       <TableCell>
                         {listing.review_id ? 'Reviewed' : 'Not Reviewed'}
@@ -846,7 +830,7 @@ const SellerDashboard = () => {
               Listing: {selectedReviewListing && `${selectedReviewListing.make} ${selectedReviewListing.model} (${selectedReviewListing.year})`}
             </Typography>
             <Typography variant="subtitle2" gutterBottom>
-              Agent ID: {selectedReviewListing && selectedReviewListing.agent_id}
+              Agent Name: {selectedReviewListing && selectedReviewListing.agent_name}
             </Typography>
 
             {/* Rating Field */}
@@ -926,7 +910,7 @@ const SellerDashboard = () => {
               Listing: {selectedReviewListing && `${selectedReviewListing.make} ${selectedReviewListing.model} (${selectedReviewListing.year})`}
             </Typography>
             <Typography variant="subtitle2" gutterBottom>
-              Agent ID: {selectedReviewListing && selectedReviewListing.agent_id}
+              Agent Name: {selectedReviewListing && selectedReviewListing.agent_name}
             </Typography>
 
             {/* Rating Field */}
@@ -1114,7 +1098,7 @@ const SellerDashboard = () => {
         >
           <Toolbar>
             <Typography variant="h6" noWrap>
-              Seller Dashboard
+              Seller
             </Typography>
           </Toolbar>
           <Box sx={{ overflow: 'auto' }}>
@@ -1156,9 +1140,9 @@ const SellerDashboard = () => {
         </Drawer>
 
         {/* Main Content */}
-        <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        <Box component="main" sx={{ flexGrow: 1}}>
           {/* AppBar with Logout Button */}
-          <AppBar position="static" sx={{ mb: 4, width: `calc(100% - ${drawerWidth}px)`, ml: `${drawerWidth}px` }}>
+          <AppBar position="static" sx={{ mb: 4}}>
             <Toolbar>
               <Typography variant="h6" sx={{ flexGrow: 1 }}>
                 {currentView === 'listings'

@@ -424,11 +424,13 @@ class UsedCarListing:
         Retrieves all listings associated with a user (seller or buyer)
         and appends the corresponding review details if available.
 
+        Additionally, fetches the agent's username for the agent_id and includes it in the response.
+
         Parameters:
             user_id (str): The ObjectId string of the user.
 
         Returns:
-            JSON response containing the listings with appended review details.
+            JSON response containing the listings with appended review details and agent_name.
         """
         if not user_id:
             logger.warning("Missing 'user_id' parameter.")
@@ -477,14 +479,13 @@ class UsedCarListing:
             # Extract listing_ids for querying reviews
             listing_ids = [str(listing['_id']) for listing in listings]
             logger.debug(f"Listing IDs: {listing_ids}")
-            print(listing_ids)
 
             # Step 5: Query all reviews where listing_id matches
             seller_reviews_cursor = reviews_collection.find({
                 'listing_id': {"$in": listing_ids}
             })
             seller_reviews = list(seller_reviews_cursor) 
-            print(f"Number of reviews found: {len(seller_reviews)}")
+            logger.debug(f"Number of reviews found: {len(seller_reviews)}")
 
             # Create a mapping from listing_id to review details
             review_map = {
@@ -497,11 +498,21 @@ class UsedCarListing:
             } 
             logger.debug(f"Review map: {review_map}")
 
-            # Step 6: Append review details to each listing
+            # Step 6: Append review details and fetch agent_name
             augmented_listings = []
-            for listing in listings:
-                print(listing)
+            for listing in listings: 
                 listing_id_str = str(listing['_id'])
+                agent_id = listing.get('agent_id', '')
+
+                # Fetch agent_name using agent_id from users_collection
+                agent_name = None
+                if agent_id:
+                    try:
+                        agent = users_collection.find_one({"_id": ObjectId(agent_id)})
+                        agent_name = agent.get('username', None) if agent else None
+                    except InvalidId:
+                        logger.warning(f"Invalid agent_id format: {agent_id}")
+
                 augmented_listing = {
                     'listing_id': listing_id_str,
                     'make': listing.get('make', ''),
@@ -514,7 +525,8 @@ class UsedCarListing:
                     'review_id': review_map.get(listing_id_str, {}).get('review_id'),
                     'rating': review_map.get(listing_id_str, {}).get('rating'),
                     'review': review_map.get(listing_id_str, {}).get('review'),
-                    "agent_id": listing.get('agent_id', '')  
+                    'agent_id': agent_id,
+                    'agent_name': agent_name  # Include the fetched agent_name
                 }
                 logger.debug(f"Augmented Listing: {augmented_listing}")
                 augmented_listings.append(augmented_listing)
