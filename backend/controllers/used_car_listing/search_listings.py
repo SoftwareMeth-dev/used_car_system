@@ -20,6 +20,5 @@ class SearchListingsController:
         query = request.args.get('query')
         response, status_code = UsedCarListing.search_listings(query) 
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 search_listings_controller = SearchListingsController()

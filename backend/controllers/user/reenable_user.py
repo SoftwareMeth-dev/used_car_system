@@ -18,6 +18,5 @@ class ReenableUserController:
         """
         response, status_code = User.reenable_user(username)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 reenable_user_controller = ReenableUserController()

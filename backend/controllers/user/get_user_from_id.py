@@ -20,10 +20,10 @@ def get_user_id():
     """
     Endpoint to retrieve a user's ObjectId based on their username.
     Query Parameters:
-        - username (string): The username of the user.
+        - userid (string): The username of the user.
     Returns:
         - JSON containing the user_id or an error message.
     """
-    username = request.args.get('username') 
-    response, status_code = User.get_user_id_from_username(username)
+    userid = request.args.get('userid') 
+    response, status_code = User.get_user_by_id(userid)
     return jsonify(response), status_code

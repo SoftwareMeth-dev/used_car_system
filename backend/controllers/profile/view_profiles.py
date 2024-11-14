@@ -20,6 +20,5 @@ class ViewProfilesController:
         role = request.args.get('role')
         response, status_code = Profile.get_profiles(role)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 view_profiles_controller = ViewProfilesController()

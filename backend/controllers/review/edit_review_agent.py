@@ -26,6 +26,5 @@ class EditReviewAgentController:
         data = request.get_json()
         response, status_code = Review.edit_review_agent(review_id, data)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 edit_review_agent_controller = EditReviewAgentController()

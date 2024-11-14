@@ -18,6 +18,5 @@ class CreateListingController:
         data = request.get_json()
         response, status_code = UsedCarListing.create_listing(data)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 create_listing_controller = CreateListingController()

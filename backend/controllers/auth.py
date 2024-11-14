@@ -18,9 +18,7 @@ class AuthController:
         data = request.get_json() 
         return User.authenticate_user(data)
     
-    def logout(self):
-        # Assuming logout doesn't require any data and always succeeds
+    def logout(self): 
         return jsonify({"message": "Logout successful."}), 200
-
-# Instantiate the controller to register routes
+ 
 auth_controller = AuthController()

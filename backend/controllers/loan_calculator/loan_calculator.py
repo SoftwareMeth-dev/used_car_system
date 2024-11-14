@@ -12,10 +12,9 @@ class LoanCalculatorController:
     def register_routes(self):
         loan_calculator_bp.add_url_rule('/loan_calculator', view_func=self.loan_calculator, methods=['POST'])
 
-    def loan_calculator(self):
+    def loan_calculator(self): 
         data = request.get_json()
         response, status_code = LoanCalculator.calculate_loan(data)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 loan_calculator_controller = LoanCalculatorController()

@@ -19,6 +19,5 @@ class ReenableProfileController:
         """
         response, status_code = Profile.reenable_profile(role)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 reenable_profile_controller = ReenableProfileController()

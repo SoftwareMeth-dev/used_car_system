@@ -20,6 +20,5 @@ class UpdateListingController:
         data = request.get_json()
         response, status_code = UsedCarListing.update_listing(listing_id, data)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 update_listing_controller = UpdateListingController()

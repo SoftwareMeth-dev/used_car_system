@@ -9,11 +9,9 @@ class ViewListingsController:
     def __init__(self):
         self.register_routes()
 
-    def register_routes(self):
-        # Endpoint to get all used car listings
+    def register_routes(self): 
         view_listings_bp.add_url_rule('/view_listings', view_func=self.view_listings, methods=['GET'])
-        
-        # Optional: Endpoint to get a specific listing by ID
+         
         view_listings_bp.add_url_rule('/view_listing/<listing_id>', view_func=self.view_listing_by_id, methods=['GET'])
 
     def view_listings(self):
@@ -31,6 +29,5 @@ class ViewListingsController:
         """
         response, status_code = UsedCarListing.get_listing_by_id(listing_id)
         return jsonify(response), status_code
-
-# Instantiate the controller to register routes
+ 
 view_listings_controller = ViewListingsController()

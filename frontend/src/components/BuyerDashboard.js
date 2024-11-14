@@ -30,23 +30,21 @@ import {
   CardActionArea,
   CardContent,
   Grid,
-  Rating,
-  List,
-  ListItem,
-  ListItemButton,
+  IconButton,
+  Checkbox,
   ListItemText,
+  ListItem,
+  ListItemButton, List
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import config from '../config';
 import HomeIcon from '@mui/icons-material/Home';
 import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SearchIcon from '@mui/icons-material/Search';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
 
-// Define the width of the sidebar drawer
 const drawerWidth = 240;
 
 // Helper function to format snake_case to Proper Case
@@ -61,7 +59,7 @@ const BuyerDashboard = () => {
   const navigate = useNavigate();
 
   // State for Sidebar Navigation
-  const [currentView, setCurrentView] = useState('landing'); // 'landing', 'listings', 'reviews'
+  const [currentView, setCurrentView] = useState('landing'); // 'landing', 'listings', 'shortlists'
 
   // Snackbar state
   const [snackbar, setSnackbar] = useState({
@@ -79,66 +77,53 @@ const BuyerDashboard = () => {
 
   // Dynamic Filters
   const [availableMakes, setAvailableMakes] = useState([]);
-  const [selectedMakes, setSelectedMakes] = useState([]);
+  const [selectedMakes, setSelectedMakes] = useState(['All']);
 
   const [availableModels, setAvailableModels] = useState([]);
-  const [selectedModels, setSelectedModels] = useState([]);
+  const [selectedModels, setSelectedModels] = useState(['All']);
 
-  const [yearRange, setYearRange] = useState([0, 0]);
-  const [selectedYearRange, setSelectedYearRange] = useState([0, 0]);
+  const [yearRange, setYearRange] = useState({ min: 0, max: 0 });
+  const [selectedMinYear, setSelectedMinYear] = useState(0);
+  const [selectedMaxYear, setSelectedMaxYear] = useState(0);
 
-  const [priceRange, setPriceRange] = useState([0, 0]);
-  const [selectedPriceRange, setSelectedPriceRange] = useState([0, 0]);
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
+  const [selectedMinPrice, setSelectedMinPrice] = useState(0);
+  const [selectedMaxPrice, setSelectedMaxPrice] = useState(0);
 
   const [listingPage, setListingPage] = useState(0);
   const [listingRowsPerPage, setListingRowsPerPage] = useState(5);
 
-  // Dynamic Filters for shortlist
-  const [slAvailableMakes, slSetAvailableMakes] = useState([]);
-  const [slSelectedMakes, slSetSelectedMakes] = useState([]);
-
-  const [slAvailableModels, slSetAvailableModels] = useState([]);
-  const [slSelectedModels, slSetSelectedModels] = useState([]);
-
-  const [slYearRange, slSetYearRange] = useState([0, 0]);
-  const [slSelectedYearRange, slSetSelectedYearRange] = useState([0, 0]);
-
-  const [slPriceRange, slSetPriceRange] = useState([0, 0]);
-  const [slSelectedPriceRange, slSetSelectedPriceRange] = useState([0, 0]);
-
-  const [slListingPage, slSetListingPage] = useState(0);
-  const [slListingRowsPerPage, slSetListingRowsPerPage] = useState(5);
-
   // States for Shortlists
   const [shortlists, setShortlists] = useState([]);
-  const [tempShortlists, setTempShortlists] = useState([]);
-  const [fullListings, setFullListings] = useState([]);
   const [filteredShortlists, setFilteredShortlists] = useState([]);
   const [shortlistPage, setShortlistPage] = useState(0);
   const [shortlistRowsPerPage, setShortlistRowsPerPage] = useState(5);
 
-  // States for Dialogs
-  const [listingErrors, setListingErrors] = useState({});
+  // States for View More Dialog
+  const [openViewMore, setOpenViewMore] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null);
+  const [sellerUsername, setSellerUsername] = useState('');
 
-  // States for Sellers
-  const [sellers, setSellers] = useState([]); // List of sellers
-  const [selectedSellerUsername, setSelectedSellerUsername] = useState(''); // Selected seller's username
+  // State to manage shortlisted listings
+  const [shortlistedListings, setShortlistedListings] = useState([]);
 
+  // State for Shortlist Feedback
+  const [isShortlisting, setIsShortlisting] = useState(false);
 
+  // Mapping of view titles
   const titleMap = {
     landing: 'Buyer Dashboard',
-    listings: 'Buyer Dashboard - Listings',
-    shortlists: 'Buyer Dashboard - Shortlists', 
+    listings: 'Buyer Dashboard - Used Car Listings',
+    shortlists: 'Buyer Dashboard - Shortlists',
   };
+
   // Set the document title based on currentView
   useEffect(() => {
     const title = titleMap[currentView] || 'Buyer Dashboard';
     document.title = title;
   }, [currentView]);
 
-
-
-  // Retrieve Agent Information from localStorage
+  // Retrieve Buyer Information from localStorage
   const getBuyerInfo = () => {
     const user = localStorage.getItem('user');
     const userID = localStorage.getItem('userID');
@@ -196,23 +181,40 @@ const BuyerDashboard = () => {
       const response = await axios.get(endpoint);
 
       if (response.status === 200) {
-        const listings = response.data.listings;
-        setListings(listings);
-        setFilteredListings(listings);
+        const listingsData = response.data.listings;
+        setListings(listingsData);
+        setFilteredListings(listingsData);
+
+        // Extract unique Makes and Models
+        const makes = [...new Set(listingsData.map((listing) => listing.make))];
+        setAvailableMakes(makes);
+        setSelectedMakes(['All']);
+
+        const models = [...new Set(listingsData.map((listing) => listing.model))];
+        setAvailableModels(models);
+        setSelectedModels(['All']);
 
         // Determine Year Range
-        const years = listings.map((listing) => listing.year);
+        const years = listingsData.map((listing) => listing.year);
         const minYear = years.length > 0 ? Math.min(...years) : 0;
         const maxYear = years.length > 0 ? Math.max(...years) : 0;
-        setYearRange([minYear, maxYear]);
-        setSelectedYearRange([minYear, maxYear]);
+        setYearRange({ min: minYear, max: maxYear });
+        setSelectedMinYear(minYear);
+        setSelectedMaxYear(maxYear);
 
         // Determine Price Range
-        const prices = listings.map((listing) => listing.price);
+        const prices = listingsData.map((listing) => listing.price);
         const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
         const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
-        setPriceRange([minPrice, maxPrice]);
-        setSelectedPriceRange([minPrice, maxPrice]);
+        setPriceRange({ min: minPrice, max: maxPrice });
+        setSelectedMinPrice(minPrice);
+        setSelectedMaxPrice(maxPrice);
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to fetch listings.',
+          severity: 'error',
+        });
       }
     } catch (error) {
       console.error('Error fetching listings:', error);
@@ -226,29 +228,55 @@ const BuyerDashboard = () => {
     }
   };
 
-  // Fetch Sellers from Backend
-  const fetchSellers = async () => {
+  // Fetch Shortlists
+  const fetchShortlists = async () => {
+    if (!userID) {
+      setSnackbar({
+        open: true,
+        message: 'Buyer information not found. Please log in again.',
+        severity: 'error',
+      });
+      navigate('/login');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Adjust the params based on your backend implementation
-      const response = await axios.get(`${config.API_BASE_URL}/view_users`, {
-        params: { role: 'seller' }, // Assuming the backend can filter by role
+      const endpoint = `${config.API_BASE_URL}/view_shortlist`;
+      const response = await axios.get(endpoint, {
+        params: { user_id: userID },
       });
 
       if (response.status === 200) {
-        setSellers(response.data.users);
+        const shortlistedListingIDs = response.data.shortlist; // Assuming it's an array of listing IDs
+        // Fetch listing details based on IDs
+        const listingsResponse = await axios.post(`${config.API_BASE_URL}/get_listings_by_ids`, {
+          listing_ids: shortlistedListingIDs,
+        });
+
+        if (listingsResponse.status === 200) {
+          const shortlistedListingsData = listingsResponse.data.listings;
+          setShortlists(shortlistedListingsData);
+          setFilteredShortlists(shortlistedListingsData);
+        } else {
+          setSnackbar({
+            open: true,
+            message: 'Failed to fetch shortlisted listings.',
+            severity: 'error',
+          });
+        }
       } else {
         setSnackbar({
           open: true,
-          message: 'Failed to fetch sellers.',
+          message: 'Failed to fetch shortlisted listings.',
           severity: 'error',
         });
       }
     } catch (error) {
-      console.error('Error fetching sellers:', error);
+      console.error('Error fetching shortlists:', error);
       setSnackbar({
         open: true,
-        message: 'An error occurred while fetching sellers.',
+        message: 'Failed to fetch shortlists.',
         severity: 'error',
       });
     } finally {
@@ -256,34 +284,11 @@ const BuyerDashboard = () => {
     }
   };
 
-  // Fetch Shortlists
-  const fetchShortlists = async () => {
-    setLoading(true);
-    try {
-      const shortlistedListingIDs = await axios.get(`${config.API_BASE_URL}/view_shortlist`, {
-        params: { user_id: username }, 
-      });
-
-      if (shortlistedListingIDs.status === 200) {
-        setTempShortlists(shortlistedListingIDs.data.shortlist);
-        const tempListings = await axios.get(`${config.API_BASE_URL}/view_listings`);
-        if (tempListings.status === 200) {
-          setFullListings(tempListings.data.listings);
-          const shortlistedListings = fullListings.filter(listing => tempShortlists.includes(listing._id));
-          setShortlists(shortlistedListings);
-          setFilteredShortlists(shortlistedListings);
-        }
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Initial Fetch
+  // Initial Fetch based on currentView
   useEffect(() => {
-    if (currentView === 'listings') {
+    if (currentView === 'landing') {
+      // No action needed
+    } else if (currentView === 'listings') {
       fetchListings();
     } else if (currentView === 'shortlists') {
       fetchShortlists();
@@ -294,41 +299,40 @@ const BuyerDashboard = () => {
   // ----------------------- Used Car Listings Functions -----------------------
 
   /**
-   * User Story: As a used car agent, I want to search for used car listings so that I can find specific cars.
-   * Trigger: The agent enters a search query and submits.
+   * User Story: As a buyer, I want to search for used car listings so that I can find specific cars.
+   * Trigger: The buyer enters a search query and submits.
    */
 
-  // US #18
   const handleSearchListings = () => {
     let filtered = [...listings];
 
     // Filter by Selected Makes
     if (selectedMakes.length > 0 && !selectedMakes.includes('All')) {
-      filtered = filtered.filter((listing) => 
-        selectedMakes.some(
-          (make) => listing.make.toLowerCase().includes(make.toLowerCase())));
+      filtered = filtered.filter((listing) =>
+        selectedMakes.includes(listing.make)
+      );
     }
 
     // Filter by Selected Models
     if (selectedModels.length > 0 && !selectedModels.includes('All')) {
-      filtered = filtered.filter((listing) => 
-        selectedModels.some(
-          (model) => listing.model.toLowerCase().includes(model.toLowerCase())));
+      filtered = filtered.filter((listing) =>
+        selectedModels.includes(listing.model)
+      );
     }
 
     // Filter by Year Range
-    if (selectedYearRange[0] !== yearRange[0] || selectedYearRange[1] !== yearRange[1]) {
+    if (selectedMinYear !== yearRange.min || selectedMaxYear !== yearRange.max) {
       filtered = filtered.filter(
         (listing) =>
-          listing.year >= selectedYearRange[0] && listing.year <= selectedYearRange[1]
+          listing.year >= selectedMinYear && listing.year <= selectedMaxYear
       );
     }
 
     // Filter by Price Range
-    if (selectedPriceRange[0] !== priceRange[0] || selectedPriceRange[1] !== priceRange[1]) {
+    if (selectedMinPrice !== priceRange.min || selectedMaxPrice !== priceRange.max) {
       filtered = filtered.filter(
         (listing) =>
-          listing.price >= selectedPriceRange[0] && listing.price <= selectedPriceRange[1]
+          listing.price >= selectedMinPrice && listing.price <= selectedMaxPrice
       );
     }
 
@@ -337,22 +341,87 @@ const BuyerDashboard = () => {
   };
 
   /**
-   * User Story: As a used car agent, I want to reset the search to view all listings.
-   * Trigger: The agent clicks the reset search button.
+   * User Story: As a buyer, I want to reset the search to view all listings.
+   * Trigger: The buyer clicks the reset search button.
    */
   const handleResetSearch = () => {
     setListingSearchQuery('');
-    setSelectedMakes(availableMakes); // Reset to all available makes
-    setSelectedModels(availableModels); // Reset to all available models
-    setSelectedYearRange(yearRange);
-    setSelectedPriceRange(priceRange);
+    setSelectedMakes(['All']);
+    setSelectedModels(['All']);
+    setSelectedMinYear(yearRange.min);
+    setSelectedMaxYear(yearRange.max);
+    setSelectedMinPrice(priceRange.min);
+    setSelectedMaxPrice(priceRange.max);
     setFilteredListings(listings);
     setListingPage(0); // Reset to first page after reset
   };
- 
-  // Render Listings with Advanced Filters
 
-  // US #15
+  // ----------------------- View More Functionality -----------------------
+  const handleViewMore = async (listing) => {
+    try {
+      // Call the track_view API to increment the view count
+      await axios.post(`${config.API_BASE_URL}/track_view`, {
+        listing_id: listing._id,
+      });
+  
+      // Fetch the seller's username using the seller_id
+      const sellerResponse = await axios.get(`${config.API_BASE_URL}/get_user_id`, {
+        params: { userid: listing.seller_id },
+      });
+  
+      if (sellerResponse.status === 200 && sellerResponse.data.user) {
+        setSellerUsername(sellerResponse.data.user.username);
+      } else {
+        setSellerUsername('Unknown Seller');
+      }
+  
+      // Set the selected listing and open the dialog
+      setSelectedListing(listing);
+      setOpenViewMore(true);
+    } catch (error) {
+      console.error('Error viewing more details:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load listing details.',
+        severity: 'error',
+      });
+    }
+  };
+  
+  const handleShortlist = async (listing) => {
+    try {
+      // Call the track_shortlist API to add the listing to the user's shortlist
+      const response = await axios.post(`${config.API_BASE_URL}/track_shortlist`, {
+        listing_id: listing._id,
+        user_id: userID, // Assuming userID is stored in state or retrieved from context
+      });
+  
+      if (response.status === 200 && response.data.success) {
+        setShortlistedListings([...shortlistedListings, listing]);
+        setSnackbar({
+          open: true,
+          message: 'Listing shortlisted successfully.',
+          severity: 'success',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to shortlist the listing.',
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error shortlisting listing:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to shortlist the listing.',
+        severity: 'error',
+      });
+    }
+  };
+   
+  // ----------------------- Render Listings -----------------------
+
   const renderListings = () => {
     // Calculate the slice of listings to display based on pagination
     const start = listingPage * listingRowsPerPage;
@@ -360,115 +429,147 @@ const BuyerDashboard = () => {
     const paginatedListings = filteredListings.slice(start, end);
 
     return (
-      <Box sx={{ m:1 }}>
+      <Box sx={{ m: 1 }}>
         {/* Search and Filters Section */}
         <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
           <Typography variant="h6" gutterBottom>
             Search Used Car Listings
           </Typography>
-        {/* Advanced Filter Section */}
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <Grid container spacing={3}>
             {/* Make Filter */}
             <Grid item xs={12} md={3}>
-              <TextField
-                label="Make"
-                variant="outlined"
-                fullWidth
-                value={selectedMakes.join(', ')}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  const makes = value.split(',').map((make) => make.trim()).filter((make) => make !== '');
-                  setSelectedMakes(makes);
-                }}
-              />
+              <FormControl fullWidth>
+                <InputLabel id="make-filter-label">Make</InputLabel>
+                <Select
+                  labelId="make-filter-label"
+                  multiple
+                  value={selectedMakes}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.includes('All')) {
+                      setSelectedMakes(['All']);
+                    } else {
+                      setSelectedMakes(value);
+                    }
+                  }}
+                  label="Make"
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {/* 'All' Option */}
+                  <MenuItem value="All">
+                    <Checkbox checked={selectedMakes.includes('All')} />
+                    <ListItemText primary="All" />
+                  </MenuItem>
+                  {availableMakes.map((make) => (
+                    <MenuItem key={make} value={make}>
+                      <Checkbox checked={selectedMakes.includes(make)} />
+                      <ListItemText primary={make} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
 
             {/* Model Filter */}
             <Grid item xs={12} md={3}>
-              <TextField
-                label="Model"
-                variant="outlined"
-                fullWidth
-                value={selectedModels.join(', ')}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  const models = value.split(',').map((model) => model.trim()).filter((model) => model !== '');
-                  setSelectedModels(models);
-                }}
-              />
+              <FormControl fullWidth>
+                <InputLabel id="model-filter-label">Model</InputLabel>
+                <Select
+                  labelId="model-filter-label"
+                  multiple
+                  value={selectedModels}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.includes('All')) {
+                      setSelectedModels(['All']);
+                    } else {
+                      setSelectedModels(value);
+                    }
+                  }}
+                  label="Model"
+                  renderValue={(selected) => selected.join(', ')}
+                >
+                  {/* 'All' Option */}
+                  <MenuItem value="All">
+                    <Checkbox checked={selectedModels.includes('All')} />
+                    <ListItemText primary="All" />
+                  </MenuItem>
+                  {availableModels.map((model) => (
+                    <MenuItem key={model} value={model}>
+                      <Checkbox checked={selectedModels.includes(model)} />
+                      <ListItemText primary={model} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
 
             {/* Year Range Filter */}
             <Grid item xs={12} md={3}>
-              <TextField
-                label="Year From"
-                variant="outlined"
-                fullWidth
-                type="number"
-                value={selectedYearRange[0]}
-                onChange={(e) => setSelectedYearRange([Number(e.target.value), selectedYearRange[1]])}
-                InputProps={{ inputProps: { min: yearRange[0], max: yearRange[1] } }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Year To"
-                variant="outlined"
-                fullWidth
-                type="number"
-                value={selectedYearRange[1]}
-                onChange={(e) => setSelectedYearRange([selectedYearRange[0], Number(e.target.value)])}
-                InputProps={{ inputProps: { min: yearRange[0], max: yearRange[1] } }}
-              />
+              <Typography gutterBottom>Year Range</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Min Year"
+                  type="number"
+                  value={selectedMinYear}
+                  onChange={(e) => setSelectedMinYear(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: yearRange.min, max: yearRange.max } }}
+                />
+                <TextField
+                  label="Max Year"
+                  type="number"
+                  value={selectedMaxYear}
+                  onChange={(e) => setSelectedMaxYear(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: yearRange.min, max: yearRange.max } }}
+                />
+              </Box>
             </Grid>
 
             {/* Price Range Filter */}
             <Grid item xs={12} md={3}>
-              <TextField
-                label="Price From ($)"
-                variant="outlined"
-                fullWidth
-                type="number"
-                value={selectedPriceRange[0]}
-                onChange={(e) => setSelectedPriceRange([Number(e.target.value), selectedPriceRange[1]])}
-                InputProps={{ inputProps: { min: priceRange[0], max: priceRange[1] } }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Price To ($)"
-                variant="outlined"
-                fullWidth
-                type="number"
-                value={selectedPriceRange[1]}
-                onChange={(e) => setSelectedPriceRange([selectedPriceRange[0], Number(e.target.value)])}
-                InputProps={{ inputProps: { min: priceRange[0], max: priceRange[1] } }}
-              />
+              <Typography gutterBottom>Price Range ($)</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Min Price"
+                  type="number"
+                  value={selectedMinPrice}
+                  onChange={(e) => setSelectedMinPrice(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: priceRange.min, max: priceRange.max } }}
+                />
+                <TextField
+                  label="Max Price"
+                  type="number"
+                  value={selectedMaxPrice}
+                  onChange={(e) => setSelectedMaxPrice(Number(e.target.value))}
+                  fullWidth
+                  InputProps={{ inputProps: { min: priceRange.min, max: priceRange.max } }}
+                />
+              </Box>
             </Grid>
           </Grid>
-        </Box>
-        <Box sx={{ mt: 2, display: 'flex', gap: 2}}>
-          {/* US #18 */}
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<SearchIcon />}
-            onClick={handleSearchListings}
-          >
-            Search
-          </Button>
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={handleResetSearch}
-          >
-            Reset
-          </Button>
-        </Box>
+          {/* Filter Actions */}
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<SearchIcon />}
+              onClick={handleSearchListings}
+            >
+              Search
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleResetSearch}
+            >
+              Reset
+            </Button>
+          </Box>
         </Box>
 
-        {/* Action Buttons */}
         {/* Listings Table */}
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -480,8 +581,6 @@ const BuyerDashboard = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Make</TableCell>
-                  <TableCell>Model</TableCell>
-                  <TableCell>Year</TableCell>
                   <TableCell>Price</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -491,26 +590,36 @@ const BuyerDashboard = () => {
                   paginatedListings.map((listing) => (
                     <TableRow key={listing._id}>
                       <TableCell>{listing.make}</TableCell>
-                      <TableCell>{listing.model}</TableCell>
-                      <TableCell>{listing.year}</TableCell>
                       <TableCell>${listing.price.toLocaleString()}</TableCell>
                       <TableCell align="center">
                         <Button
-                          variant="contained"
-                          color="info"
-                          startIcon={<AddIcon />}
-                          onClick={() => {
-                            // dummy method
-                          }}
+                          variant="outlined"
+                          color="primary"
+                          onClick={() => handleViewMore(listing)}
+                          sx={{ mr: 1 }}
                         >
-                          Shortlist
+                          View More
+                        </Button>
+                        <Button
+                          variant="contained"
+                          color="secondary"
+                          onClick={() => handleShortlist(listing)}
+                          disabled={shortlistedListings.some(
+                            (shortlisted) => shortlisted._id === listing._id
+                          )}
+                        >
+                          {shortlistedListings.some(
+                            (shortlisted) => shortlisted._id === listing._id
+                          )
+                            ? 'Shortlisted'
+                            : 'Shortlist'}
                         </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={3} align="center">
                       No listings found.
                     </TableCell>
                   </TableRow>
@@ -534,135 +643,118 @@ const BuyerDashboard = () => {
             />
           </>
         )}
+
+        {/* View More Dialog */}
+        <Dialog
+          open={openViewMore}
+          onClose={() => setOpenViewMore(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>
+            Listing Details
+            <IconButton
+              aria-label="close"
+              onClick={() => setOpenViewMore(false)}
+              sx={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                color: (theme) => theme.palette.grey[500],
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            {selectedListing && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Typography variant="body1">
+                  <strong>Make:</strong> {selectedListing.make}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Model:</strong> {selectedListing.model}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Year:</strong> {selectedListing.year}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Price:</strong> ${selectedListing.price.toLocaleString()}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Seller Name:</strong> {sellerUsername}
+                </Typography>
+                {/* Add more details as needed */}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenViewMore(false)} color="primary">
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
-  )  };
+    );
+
+  };
+
+
+  const handleRemoveShortlist = async (listing) => {
+    setIsShortlisting(true);
+    try {
+      // Call the remove_shortlist API
+      const response = await axios.post(`${config.API_BASE_URL}/remove_shortlist`, {
+        listing_id: listing._id,
+        user_id: userID,
+      });
   
-  /**
-   * User Story: As a used car agent, I want to view the ratings and reviews so that I can understand client feedback and improve my services.
-   * Trigger: The agent navigates to the Reviews view.
-   */
+      if (response.status === 200) {
+        // Update the shortlistedListings state by removing the listing
+        setShortlistedListings((prev) =>
+          prev.filter((item) => item._id !== listing._id)
+        );
+        setFilteredShortlists((prev) =>
+          prev.filter((item) => item._id !== listing._id)
+        );
+        setSnackbar({
+          open: true,
+          message: 'Listing removed from shortlist.',
+          severity: 'success',
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to remove listing from shortlist.',
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('Error removing listing from shortlist:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to remove listing from shortlist.',
+        severity: 'error',
+      });
+    } finally {
+      setIsShortlisting(false);
+    }
+  };
 
-  // US #36
-
- // todo 
-// US #15
 const renderShortlists = () => {
-  // Calculate the slice of listings to display based on pagination
+  // Calculate the slice of shortlists to display based on pagination
   const start = shortlistPage * shortlistRowsPerPage;
   const end = start + shortlistRowsPerPage;
   const paginatedShortlists = filteredShortlists.slice(start, end);
 
   return (
-    <Box sx={{ m:1 }}>
-      {/* Search and Filters Section */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', mb: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Search Shortlists
-        </Typography>
-      {/* Advanced Filter Section */}
-      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-        <Grid container spacing={3}>
-          {/* Make Filter */}
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Make"
-              variant="outlined"
-              fullWidth
-              value={selectedMakes.join(', ')}
-              onChange={(e) => {
-                const value = e.target.value;
-                const makes = value.split(',').map((make) => make.trim()).filter((make) => make !== '');
-                slSetSelectedMakes(makes);
-              }}
-            />
-          </Grid>
+    <Box sx={{ m: 1 }}>
+      {/* Header */}
+      <Typography variant="h6" gutterBottom>
+        Your Shortlisted Listings
+      </Typography>
 
-          {/* Model Filter */}
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Model"
-              variant="outlined"
-              fullWidth
-              value={selectedModels.join(', ')}
-              onChange={(e) => {
-                const value = e.target.value;
-                const models = value.split(',').map((model) => model.trim()).filter((model) => model !== '');
-                slSetSelectedModels(models);
-              }}
-            />
-          </Grid>
-
-          {/* Year Range Filter */}
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Year From"
-              variant="outlined"
-              fullWidth
-              type="number"
-              value={selectedYearRange[0]}
-              onChange={(e) => slSetSelectedYearRange([Number(e.target.value), selectedYearRange[1]])}
-              InputProps={{ inputProps: { min: yearRange[0], max: yearRange[1] } }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Year To"
-              variant="outlined"
-              fullWidth
-              type="number"
-              value={selectedYearRange[1]}
-              onChange={(e) => slSetSelectedYearRange([selectedYearRange[0], Number(e.target.value)])}
-              InputProps={{ inputProps: { min: yearRange[0], max: yearRange[1] } }}
-            />
-          </Grid>
-
-          {/* Price Range Filter */}
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Price From ($)"
-              variant="outlined"
-              fullWidth
-              type="number"
-              value={selectedPriceRange[0]}
-              onChange={(e) => slSetSelectedPriceRange([Number(e.target.value), selectedPriceRange[1]])}
-              InputProps={{ inputProps: { min: priceRange[0], max: priceRange[1] } }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              label="Price To ($)"
-              variant="outlined"
-              fullWidth
-              type="number"
-              value={selectedPriceRange[1]}
-              onChange={(e) => slSetSelectedPriceRange([selectedPriceRange[0], Number(e.target.value)])}
-              InputProps={{ inputProps: { min: priceRange[0], max: priceRange[1] } }}
-            />
-          </Grid>
-        </Grid>
-      </Box>
-      <Box sx={{ mt: 2, display: 'flex', gap: 2}}>
-        {/* US #18 */}
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<SearchIcon />}
-          onClick={handleSearchListings}
-        >
-          Search
-        </Button>
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={handleResetSearch}
-        >
-          Reset
-        </Button>
-      </Box>
-      </Box>
-
-      {/* Action Buttons */}
-      {/* Listings Table */}
+      {/* Shortlists Table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <CircularProgress />
@@ -673,8 +765,6 @@ const renderShortlists = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Make</TableCell>
-                <TableCell>Model</TableCell>
-                <TableCell>Year</TableCell>
                 <TableCell>Price</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
@@ -684,32 +774,43 @@ const renderShortlists = () => {
                 paginatedShortlists.map((listing) => (
                   <TableRow key={listing._id}>
                     <TableCell>{listing.make}</TableCell>
-                    <TableCell>{listing.model}</TableCell>
-                    <TableCell>{listing.year}</TableCell>
                     <TableCell>${listing.price.toLocaleString()}</TableCell>
                     <TableCell align="center">
+                      {/* View More Button */}
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        onClick={() => handleViewMore(listing)}
+                        sx={{ mr: 1 }}
+                      >
+                        View More
+                      </Button>
+                      {/* Remove from Shortlist Button */}
                       <Button
                         variant="contained"
-                        color="info"
-                        startIcon={<AddIcon />}
-                        onClick={() => {
-                          // dummy method
-                        }}
+                        color="error"
+                        onClick={() => handleRemoveShortlist(listing)}
+                        disabled={isShortlisting}
                       >
-                        Shortlist
+                        {isShortlisting ? (
+                          <CircularProgress size={24} color="inherit" />
+                        ) : (
+                          'Remove'
+                        )}
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    No listings found.
+                  <TableCell colSpan={3} align="center">
+                    No shortlisted listings found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+
           {/* Pagination Controls */}
           <TablePagination
             component="div"
@@ -727,17 +828,66 @@ const renderShortlists = () => {
           />
         </>
       )}
-    </Box>
-)  };
 
+      {/* View More Dialog */}
+      <Dialog
+        open={openViewMore}
+        onClose={() => setOpenViewMore(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Listing Details
+          <IconButton
+            aria-label="close"
+            onClick={() => setOpenViewMore(false)}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: (theme) => theme.palette.grey[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedListing && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body1">
+                <strong>Make:</strong> {selectedListing.make}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Model:</strong> {selectedListing.model}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Year:</strong> {selectedListing.year}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Price:</strong> ${selectedListing.price.toLocaleString()}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Seller Name:</strong> {sellerUsername}
+              </Typography>
+              {/* Add more details as needed */}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenViewMore(false)} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
   // ----------------------- Logout Function -----------------------
 
   /**
-   * User Story: As a used car agent, I want to logout so that I can exit the system.
-   * Trigger: The agent clicks the logout button.
+   * User Story: As a buyer, I want to logout so that I can exit the system.
+   * Trigger: The buyer clicks the logout button.
    */
-
-  // US #28
   const handleLogout = () => {
     // Clear localStorage
     localStorage.removeItem('user');
@@ -761,13 +911,12 @@ const renderShortlists = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // ----------------------- Render Functions -----------------------
+  // ----------------------- Render Landing Page -----------------------
 
   /**
-   * User Story: As a used car agent, I want to see a landing page upon login that allows me to navigate to different sections.
-   * Trigger: The agent logs into the system.
+   * User Story: As a buyer, I want to see a landing page upon login that allows me to navigate to different sections.
+   * Trigger: The buyer logs into the system.
    */
-  // Render Landing Page
   const renderLandingPage = () => {
     return (
       <Box
@@ -800,7 +949,6 @@ const renderShortlists = () => {
                   boxShadow: 6,
                 },
               }}
-              // US #15
               onClick={() => handleNavigation('listings')}
             >
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
@@ -825,7 +973,6 @@ const renderShortlists = () => {
                   boxShadow: 6,
                 },
               }}
-              // US #36
               onClick={() => handleNavigation('shortlists')}
             >
               <CardActionArea sx={{ width: '100%', height: '100%' }}>
@@ -883,7 +1030,7 @@ const renderShortlists = () => {
               </ListItemButton>
             </ListItem>
 
-            {/* Reviews Button */}
+            {/* Shortlists Button */}
             <ListItem disablePadding>
               <ListItemButton
                 selected={currentView === 'shortlists'}
@@ -906,10 +1053,9 @@ const renderShortlists = () => {
               {currentView === 'listings'
                 ? 'Used Car Listings'
                 : currentView === 'shortlists'
-                ? 'Reviews'
+                ? 'Shortlists'
                 : 'Dashboard'}
             </Typography>
-            {/* US #28 */}
             <Button color="inherit" onClick={handleLogout}>
               Logout
             </Button>
@@ -932,8 +1078,6 @@ const renderShortlists = () => {
         {currentView === 'landing' && renderLandingPage()}
         {currentView === 'listings' && renderListings()}
         {currentView === 'shortlists' && renderShortlists()}
-
-        
       </Box>
     </Box>
   );

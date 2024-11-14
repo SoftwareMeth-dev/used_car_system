@@ -19,6 +19,5 @@ class SuspendProfileController:
         """
         response, status_code = Profile.suspend_profile(role)
         return jsonify(response), status_code
-
-# Instantiate the controller
+ 
 suspend_profile_controller = SuspendProfileController()
