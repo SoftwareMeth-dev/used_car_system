@@ -739,7 +739,7 @@ const AgentDashboard = () => {
                   <TableCell>Model</TableCell>
                   <TableCell>Year</TableCell>
                   <TableCell>Price</TableCell>
-                  <TableCell>Seller</TableCell> {/* Added Seller Column */}
+                  <TableCell>Agent</TableCell> {/* Added Seller Column */}
                   <TableCell>Created At</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -752,7 +752,7 @@ const AgentDashboard = () => {
                       <TableCell>{listing.model}</TableCell>
                       <TableCell>{listing.year}</TableCell>
                       <TableCell>${listing.price.toLocaleString()}</TableCell>
-                      <TableCell>{listing.seller_username}</TableCell> {/* Display Seller Username */}
+                      <TableCell>{agentInfo.username}</TableCell> {/* Display Seller Username */}
                       <TableCell>{new Date(listing.created_at).toLocaleString()}</TableCell>
                       <TableCell align="center">
                         <Button
@@ -761,6 +761,7 @@ const AgentDashboard = () => {
                           startIcon={<EditIcon />}
                           onClick={() => {
                             setSelectedListing(listing);
+                            console.log(listing);
                             setUpdatedListingData({
                               make: listing.make,
                               model: listing.model,
