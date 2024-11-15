@@ -1,34 +1,47 @@
-Project Setup Guide
+# Project Setup Guide
 
 Follow the instructions below to set up and run the project.
 
-Backend Setup
+## Backend Setup
 
-Open a terminal and navigate to the backend directory:
+1. **Open a terminal and navigate to the backend directory:**
 
-cd backend
+    ```bash
+    cd backend
+    ```
 
-Install the required dependencies:
+2. **Install the required dependencies:**
 
-pip install -r requirements.txt
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-Start the backend application:
+3. **Start the backend application:**
 
-python app.py
+    ```bash
+    python app.py
+    ```
 
-Frontend Setup
+## Frontend Setup
 
-Open another terminal and navigate to the frontend directory:
+1. **Open another terminal and navigate to the frontend directory:**
 
-cd frontend
+    ```bash
+    cd frontend
+    ```
 
-Install the required dependencies:
+2. **Install the required dependencies:**
 
-npm install
+    ```bash
+    npm install
+    ```
 
-Start the frontend application:
+3. **Start the frontend application:**
 
-npm start
+    ```bash
+    npm start
+    ```
+
+---
 
 You should now have both the backend and frontend running locally.
-
