@@ -34,6 +34,7 @@ from controllers.used_car_listing.get_reviews import user_reviews_bp
 from controllers.used_car_listing.get_metrics import get_metrics_bp
 
 from controllers.user.get_user_from_id import get_user_from_id_bp
+from controllers.user.get_id_from_username import get_id_from_username_bp
 from controllers.user.create_user import create_user_bp
 from controllers.user.view_users import view_users_bp
 from controllers.user.update_user import update_user_bp
@@ -65,6 +66,7 @@ init_db()
 # Register all Blueprints
 app.register_blueprint(auth_bp)
 app.register_blueprint(get_user_from_id_bp)
+app.register_blueprint(get_id_from_username_bp)
 app.register_blueprint(create_user_bp)
 app.register_blueprint(view_users_bp)
 app.register_blueprint(update_user_bp)
