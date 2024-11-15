@@ -357,7 +357,7 @@ const AgentDashboard = () => {
     setLoading(true);
     try {
       // Step 1: Get seller_id from selectedSellerUsername
-      const sellerIdResponse = await axios.get(`${config.API_BASE_URL}/users/get_user_id`, {
+      const sellerIdResponse = await axios.get(`${config.API_BASE_URL}/get_id_from_username`, {
         params: { username: selectedSellerUsername },
       });
 

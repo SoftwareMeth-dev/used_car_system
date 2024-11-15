@@ -69,7 +69,7 @@ class Review:
             if not listing:
                 return {"error": "Listing not found."}, 404
 
-            agent_id = listing.get('seller_id')  # Assuming 'seller_id' is the agent
+            agent_id = listing.get('agent_id')  # Assuming 'seller_id' is the agent
             if not agent_id:
                 return {"error": "Agent associated with the listing not found."}, 404
 

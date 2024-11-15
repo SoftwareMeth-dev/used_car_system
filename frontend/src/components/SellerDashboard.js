@@ -465,12 +465,7 @@ const SellerDashboard = () => {
         });
       }
     } catch (error) {
-      console.error('Error fetching listings and shortlists:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to fetch listings and shortlists.',
-        severity: 'error',
-      });
+      console.error('Error fetching listings and shortlists:', error); 
     } finally {
       setLoading(false);
     }
@@ -618,7 +613,7 @@ const SellerDashboard = () => {
         reviewer_role: 'seller', // Ensure this matches backend expectations
         rating: Number(reviewFormData.rating),
         review: reviewFormData.review,
-      };
+      }; 
       const endpoint = `${config.API_BASE_URL}/rate_review_agent/${userID}/${selectedReviewListing.listing_id}`;
       const response = await axios.post(endpoint, payload);
       if (response.status === 201 || response.status === 200) {

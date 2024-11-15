@@ -23,7 +23,8 @@ def get_user_id():
         - userid (string): The username of the user.
     Returns:
         - JSON containing the user_id or an error message.
-    """
+    """ 
     userid = request.args.get('userid') 
+    print(userid)
     response, status_code = User.get_user_by_id(userid)
     return jsonify(response), status_code

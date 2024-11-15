@@ -192,7 +192,7 @@ class User:
         """
         Retrieves a user by their ObjectId.
         Returns a tuple of (response_data, status_code).
-        """ 
+        """  
         try:
             oid = ObjectId(user_id)
         except InvalidId:
@@ -335,16 +335,20 @@ class User:
         """
         Retrieves the ObjectId of a user based on their username.
         Returns a tuple of (response_data, status_code).
-        """
+        """  
         if not username:
             logger.warning("Username parameter is missing.")
             return {"error": "Username parameter is required."}, 400  # Bad Request
-        try:
+        try: 
+            print(f"Trying with {username}")
             user = users_collection.find_one({"username": username})
+            print(user)
             if not user:
                 logger.warning(f"User not found with username: {username}")
                 return {"error": "User not found."}, 404  # Not Found
+            print("hello")
             user_id = str(user['_id'])
+            print(user_id)
             logger.info(f"Retrieved user ID for username '{username}': {user_id}")
             return {"user_id": user_id}, 200  # OK
         except Exception as e:
