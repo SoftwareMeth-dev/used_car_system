@@ -180,7 +180,6 @@ const AgentDashboard = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Fetch Listings and Dynamically Set Filters
   const fetchListings = async () => {
     if (!userID) {
       setSnackbar({
@@ -191,41 +190,83 @@ const AgentDashboard = () => {
       navigate('/login');
       return;
     }
-
+  
     setLoading(true);
     try {
       const endpoint = `${config.API_BASE_URL}/view_listings`;
       const params = { agent_id: userID }; // Pass userID as agent identifier
-
+  
       const response = await axios.get(endpoint, { params });
-
       if (response.status === 200) {
         // Frontend filter to ensure only agent's listings are displayed
         const agentListings = response.data.listings.filter(
           (listing) => listing.agent_id === userID
         );
-        setListings(agentListings);
-        setFilteredListings(agentListings);
-
+        console.log('Agent Listings:', agentListings);
+        console.log(agentListings);
+        // Extract unique seller_ids to minimize API calls
+        const uniqueSellerIds = [...new Set(agentListings.map(listing => listing.seller_id))];
+  
+        // Object to store seller_id to username mapping
+        const sellerIdToUsernameMap = {};
+  
+        // Fetch user data for each unique seller_id
+        await Promise.all(uniqueSellerIds.map(async (seller_id) => {
+          try {
+            const userResponse = await axios.get(`${config.API_BASE_URL}/get_user_id`, {
+              params: { userid: seller_id }
+            });
+  
+            if (userResponse.status === 200 && userResponse.data.user) {
+              sellerIdToUsernameMap[seller_id] = userResponse.data.user.username;
+            } else {
+              // Handle cases where user data is not found
+              sellerIdToUsernameMap[seller_id] = 'Unknown Seller';
+              console.warn(`User not found for seller_id: ${seller_id}`);
+            }
+          } catch (error) {
+            // Handle request errors
+            console.error(`Error fetching user for seller_id ${seller_id}:`, error);
+            sellerIdToUsernameMap[seller_id] = 'Unknown Seller';
+          }
+        }));
+        console.log(sellerIdToUsernameMap);
+        // Append seller_username to each listing
+        const listingsWithUsernames = agentListings.map(listing => ({
+          ...listing,
+          seller_username: sellerIdToUsernameMap[listing.seller_id] || 'Unknown Seller'
+        }));
+  
+        setListings(listingsWithUsernames);
+        setFilteredListings(listingsWithUsernames);
+  
         // Determine Year Range
-        const years = agentListings.map((listing) => listing.year);
+        const years = listingsWithUsernames.map((listing) => listing.year);
         const minYear = years.length > 0 ? Math.min(...years) : 0;
         const maxYear = years.length > 0 ? Math.max(...years) : 0;
         setYearRange([minYear, maxYear]);
         setSelectedYearRange([minYear, maxYear]);
-
+  
         // Determine Price Range
-        const prices = agentListings.map((listing) => listing.price);
+        const prices = listingsWithUsernames.map((listing) => listing.price);
         const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
         const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
         setPriceRange([minPrice, maxPrice]);
         setSelectedPriceRange([minPrice, maxPrice]);
+      } else {
+        // Handle unexpected response statuses
+        console.error('Unexpected response status:', response.status);
+        setSnackbar({
+          open: true,
+          message: 'Unexpected error occurred. Please try again later.',
+          severity: 'error',
+        });
       }
     } catch (error) {
       console.error('Error fetching listings:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to fetch listings.',
+        message: 'Failed to fetch listings. Please try again later.',
         severity: 'error',
       });
     } finally {
@@ -739,7 +780,7 @@ const AgentDashboard = () => {
                   <TableCell>Model</TableCell>
                   <TableCell>Year</TableCell>
                   <TableCell>Price</TableCell>
-                  <TableCell>Agent</TableCell> {/* Added Seller Column */}
+                  <TableCell>Seller </TableCell> {/* Added Seller Column */}
                   <TableCell>Created At</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -752,7 +793,7 @@ const AgentDashboard = () => {
                       <TableCell>{listing.model}</TableCell>
                       <TableCell>{listing.year}</TableCell>
                       <TableCell>${listing.price.toLocaleString()}</TableCell>
-                      <TableCell>{agentInfo.username}</TableCell> {/* Display Seller Username */}
+                      <TableCell>{listing.seller_username}</TableCell> {/* Display Seller Username */}
                       <TableCell>{new Date(listing.created_at).toLocaleString()}</TableCell>
                       <TableCell align="center">
                         <Button

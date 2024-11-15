@@ -490,7 +490,7 @@ const SellerDashboard = () => {
 
       if (response.status === 200) {
         const sellerListings = response.data.listings; // Each listing now includes review details and agent_id
-
+        console.log(sellerListings);
         if (sellerListings.length === 0) {
           setSnackbar({
             open: true,
